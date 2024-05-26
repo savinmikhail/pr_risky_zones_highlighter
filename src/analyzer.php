@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // Expected arguments: GPT API key, GitHub Token, Repository Full Name, Pull Number
 if ($argc < 5) {
     echo "Insufficient arguments provided.\n";
@@ -164,5 +166,4 @@ function postCommentToPullRequest(
     }
 
     echo "Successfully posted comment.\n";
-    print_r(json_decode($response, true));
 }
