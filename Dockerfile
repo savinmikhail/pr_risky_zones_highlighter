@@ -1,5 +1,6 @@
 FROM php:8.3-cli
 
+RUN apt-get update && apt-get install -y libcurl
 RUN docker-php-ext-install curl
 
 WORKDIR /app
