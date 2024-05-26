@@ -8,6 +8,13 @@ if ($argc < 5) {
     exit(1);
 }
 
+foreach ($argv as $key => $arg) {
+    if (empty($arg)) {
+        echo "Empty argument #" . ($key + 1) . " provided.";
+        exit(1);
+    }
+}
+
 $gptApiKey = $argv[1];
 $githubToken = $argv[2];
 $repoFullName = $argv[3];
@@ -15,7 +22,9 @@ $pullNumber = $argv[4];
 
 // Main workflow
 $diff = getPullRequestDiff($repoFullName, $pullNumber, $githubToken);
+print_r($diff);
 $analysis = analyzeCodeWithChatGPT($diff, $gptApiKey);
+print_r($analysis);
 postCommentToPullRequest($repoFullName, $pullNumber, $analysis, $githubToken);
 
 function getPullRequestDiff(string $repoFullName, string $pullNumber, string $githubToken): string
@@ -91,12 +100,23 @@ function postCommentToPullRequest(
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    if ($statusCode !== 201) {
-        echo "Failed to post comment. Status code: $statusCode";
+
+    $response = curl_exec($ch);
+    if ($response === false) {
+        echo "Curl error: " . curl_error($ch);
+        curl_close($ch);
         exit(1);
     }
-    $response = curl_exec($ch);
+
+    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    print_r($response);
+
+    if ($statusCode !== 201) {
+        echo "Failed to post comment. Status code: $statusCode\n";
+        echo "Response: " . $response . "\n";
+        exit(1);
+    }
+
+    echo "Successfully posted comment.\n";
+    print_r(json_decode($response, true));
 }
