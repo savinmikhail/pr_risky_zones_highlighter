@@ -1,4 +1,4 @@
-## PR risky zones highlither
+## PR risky zones highlighter
 
 - A detailed description of what the action does
 - Required input and output arguments
