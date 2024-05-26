@@ -4,6 +4,9 @@ inputs:
   gpt_api_key:
     description: 'API key for accessing ChatGPT.'
     required: true
+  gpt_url:
+    description: 'URL for accessing ChatGPT. For example, "https://api.openai.com/".'
+    required: true
   github_token:
     description: 'GitHub token for accessing repository data.'
     required: true
@@ -18,6 +21,7 @@ runs:
   image: 'Dockerfile'
   args:
     - ${{ inputs.gpt_api_key }}
+    - ${{ inputs.gpt_url }}
     - ${{ inputs.github_token }}
     - ${{ inputs.repo_full_name }}
     - ${{ inputs.pull_number }}

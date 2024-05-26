@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Expected arguments: GPT API key, GitHub Token, Repository Full Name, Pull Number
-if ($argc < 5) {
+if ($argc < 6) {
     echo "Insufficient arguments provided.\n";
     exit(1);
 }
@@ -16,16 +16,17 @@ foreach ($argv as $key => $arg) {
 }
 
 $gptApiKey = $argv[1];
-$githubToken = $argv[2];
-$repoFullName = $argv[3];
-$pullNumber = $argv[4];
+$gptUrl = $argv[2];
+$githubToken = $argv[3];
+$repoFullName = $argv[4];
+$pullNumber = $argv[5];
 
 // Main workflow
 $diff = getPullRequestDiff($repoFullName, $pullNumber, $githubToken);
 echo "\nFetched diffs are:\n";
 print_r($diff);
 
-$analysis = analyzeCodeWithChatGPT($diff, $gptApiKey);
+$analysis = analyzeCodeWithChatGPT($diff, $gptApiKey, $gptUrl);
 echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 
@@ -63,7 +64,7 @@ function getPullRequestDiff(string $repoFullName, string $pullNumber, string $gi
     return $response;
 }
 
-function analyzeCodeWithChatGPT(string $code, string $gptApiKey): string
+function analyzeCodeWithChatGPT(string $code, string $gptApiKey, string $gptUrl): string
 {
     $postData = json_encode([
         'model' => 'gpt-3.5-turbo',
@@ -98,7 +99,7 @@ function analyzeCodeWithChatGPT(string $code, string $gptApiKey): string
     ]);
 
     //for russia use proxy
-    $ch = curl_init('https://api.proxyapi.ru/openai/v1/chat/completions');
+    $ch = curl_init("$gptUrl/v1/chat/completions");
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'Authorization: Bearer ' . $gptApiKey
