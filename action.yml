@@ -4,8 +4,20 @@ inputs:
   gpt_api_key:
     description: 'API key for accessing ChatGPT.'
     required: true
+  github_token:
+    description: 'GitHub token for accessing repository data.'
+    required: true
+  repo_full_name:
+    description: 'Full name of the repository, e.g., "octocat/hello-world".'
+    required: true
+  pull_number:
+    description: 'The number of the pull request to analyze.'
+    required: true
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
     - ${{ inputs.gpt_api_key }}
+    - ${{ inputs.github_token }}
+    - ${{ inputs.repo_full_name }}
+    - ${{ inputs.pull_number }}
