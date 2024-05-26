@@ -1,16 +1,14 @@
 <?php
 
-print_r($argv);
-
 // Expected arguments: GPT API key, GitHub Token, Repository Full Name, Pull Number
 if ($argc < 5) {
-    echo "Insufficient arguments provided.";
+    echo "Insufficient arguments provided.\n";
     exit(1);
 }
 
 foreach ($argv as $key => $arg) {
     if (empty($arg)) {
-        echo "Empty argument #" . ($key + 1) . " provided.";
+        echo "Empty argument N" . ($key + 1) . " provided.\n";
         exit(1);
     }
 }
@@ -22,9 +20,13 @@ $pullNumber = $argv[4];
 
 // Main workflow
 $diff = getPullRequestDiff($repoFullName, $pullNumber, $githubToken);
+echo "\nFetched diffs are:\n";
 print_r($diff);
+
 $analysis = analyzeCodeWithChatGPT($diff, $gptApiKey);
+echo "\nChatGPT analysis is:\n";
 print_r($analysis);
+
 postCommentToPullRequest($repoFullName, $pullNumber, $analysis, $githubToken);
 
 function getPullRequestDiff(string $repoFullName, string $pullNumber, string $githubToken): string
@@ -38,8 +40,23 @@ function getPullRequestDiff(string $repoFullName, string $pullNumber, string $gi
         'User-Agent: PHP Script',
         'Accept: application/vnd.github.v3.diff'
     ]);
+
     $response = curl_exec($ch);
+    if ($response === false) {
+        echo "Curl error: " . curl_error($ch);
+        curl_close($ch);
+        exit(1);
+    }
+
+    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+
+    if ($statusCode !== 200) {
+        echo "Failed to get PR differences. Status code: $statusCode\n";
+        echo "Response: " . $response . "\n";
+        exit(1);
+    }
+    echo "Successfully get PR differences.\n";
 
     return $response;
 }
@@ -51,7 +68,21 @@ function analyzeCodeWithChatGPT(string $code, string $gptApiKey): string
         'messages' => [
             [
                 "role" => "system",
-                "content" => "You are a senior developer. Review the code for potential vulnerabilities and bugs."
+                "content" => "You are a senior developer. 
+                You will receive the code differences from pull request.
+                Review the changes for potential vulnerabilities, bugs or poor design.
+                You can use GitHub markdown syntax.
+
+                Example how you can provide your opinion: 
+
+                1. In the test.php file:
+                - The addition of declare(strict_types=1) is a good practice as it enforces strict typing in PHP. 
+                However, make sure to review the entire codebase to ensure compliance with strict types wherever necessary.
+                
+                2. In the main.yml file:
+                - The action pr_risky_zones_highlighter is being used to run a Risk Analysis. 
+                The version 0.1.x should be specified cautiously as using a wildcard in the version can 
+                lead to potential security risks. It's recommended to use a specific version instead of a wildcard (0.1.x)."
             ],
             [
                 "role" => "user",
@@ -75,8 +106,23 @@ function analyzeCodeWithChatGPT(string $code, string $gptApiKey): string
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
 
     $response = curl_exec($ch);
+    if ($response === false) {
+        echo "Curl error: " . curl_error($ch);
+        curl_close($ch);
+        exit(1);
+    }
+
+    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+
+    if ($statusCode !== 200) {
+        echo "Failed to get review from ChatGPT. Status code: $statusCode\n";
+        echo "Response: " . $response . "\n";
+        exit(1);
+    }
+
     $responseArray = json_decode($response, true);
+    echo "Successfully get review from ChatGPT.\n";
 
     return $responseArray['choices'][0]['message']['content'];
 }
