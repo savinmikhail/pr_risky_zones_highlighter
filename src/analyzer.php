@@ -1,28 +1,62 @@
 <?php
 
+print_r($argv);
+
+// Expected arguments: GPT API key, GitHub Token, Repository Full Name, Pull Number
+if ($argc < 5) {
+    echo "Insufficient arguments provided.";
+    exit(1);
+}
+
 $gptApiKey = $argv[1];
-file_put_contents('comment.txt', "Risky zones identified...");
+$githubToken = $argv[2];
+$repoFullName = $argv[3];
+$pullNumber = $argv[4];
 
-function getPullRequestDiff($repoFullName, $pullNumber, $githubToken) {
+// Main workflow
+$diff = getPullRequestDiff($repoFullName, $pullNumber, $githubToken);
+$analysis = analyzeCodeWithChatGPT($diff, $gptApiKey);
+postCommentToPullRequest($repoFullName, $pullNumber, $analysis, $githubToken);
+
+function getPullRequestDiff(string $repoFullName, string $pullNumber, string $githubToken): string
+{
     $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
-
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: token ' . $githubToken,
-        'User-Agent: PHP Script'
+        'User-Agent: PHP Script',
+        'Accept: application/vnd.github.v3.diff'
     ]);
     $response = curl_exec($ch);
     curl_close($ch);
 
-    return json_decode($response, true);
+    return $response;
 }
 
-function analyzeCodeWithChatGPT($code, $gptApiKey) {
-    $postData = json_encode(['prompt' => "Analyze this code: $code", 'max_tokens' => 150]);
+function analyzeCodeWithChatGPT(string $code, string $gptApiKey): string
+{
+    $postData = json_encode([
+        'model' => 'gpt-3.5-turbo',
+        'messages' => [
+            [
+                "role" => "system",
+                "content" => "You are a senior developer. Review the code for potential vulnerabilities and bugs."
+            ],
+            [
+                "role" => "user",
+                "content" => $code
+            ],
+        ],
+        'temperature' => 1.0,
+        'max_tokens' => 4000,
+        'frequency_penalty' => 0,
+        'presence_penalty' => 0,
+    ]);
 
-    $ch = curl_init('https://api.openai.com/v1/engines/chatgpt/completions');
+    //for russia use proxy
+    $ch = curl_init('https://api.proxyapi.ru/openai/v1/chat/completions');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
         'Authorization: Bearer ' . $gptApiKey
@@ -33,11 +67,17 @@ function analyzeCodeWithChatGPT($code, $gptApiKey) {
 
     $response = curl_exec($ch);
     curl_close($ch);
+    $responseArray = json_decode($response, true);
 
-    return json_decode($response, true);
+    return $responseArray['choices'][0]['message']['content'];
 }
 
-function postCommentToPullRequest($repoFullName, $pullNumber, $comment, $githubToken) {
+function postCommentToPullRequest(
+    string $repoFullName,
+    string $pullNumber,
+    string $comment,
+    string $githubToken
+): void {
     $url = "https://api.github.com/repos/$repoFullName/issues/$pullNumber/comments";
     $data = json_encode(['body' => $comment]);
 
@@ -51,9 +91,12 @@ function postCommentToPullRequest($repoFullName, $pullNumber, $comment, $githubT
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
+    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if ($statusCode !== 201) {
+        echo "Failed to post comment. Status code: $statusCode";
+        exit(1);
+    }
     $response = curl_exec($ch);
     curl_close($ch);
-    return $response;
+    print_r($response);
 }
-
