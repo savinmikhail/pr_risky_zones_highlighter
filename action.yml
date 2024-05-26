@@ -1,0 +1,11 @@
+name: 'PR Risky Zones Highlighter'
+description: 'A GitHub Action to highlight risky zones in pull requests using ChatGPT.'
+inputs:
+  gpt_api_key:
+    description: 'API key for accessing ChatGPT.'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.gpt_api_key }}
