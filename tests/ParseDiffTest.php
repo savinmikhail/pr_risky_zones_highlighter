@@ -1,6 +1,9 @@
 <?php
 
+namespace SavinMikhail\Tests\PrRiskHighLighter;
+
 use PHPUnit\Framework\TestCase;
+use SavinMikhail\PrRiskHighlighter\Highlighter;
 
 class ParseDiffTest extends TestCase
 {
@@ -35,7 +38,8 @@ class ParseDiffTest extends TestCase
             ],
         ];
 
-        $actual = parseDiff($diff);
+        $highlighter = new Highlighter();
+        $actual =$highlighter-> parseDiff($diff);
         $this->assertEquals($expected, $actual);
     }
 }

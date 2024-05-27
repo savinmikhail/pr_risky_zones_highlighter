@@ -1,8 +1,37 @@
 {
+    "name": "savinmikhail/pr_risk_highlighter",
+    "description": "The github action to highlight risky parts in PRs",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "Savinmikhail\\PrRiskHighLighter\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Savinmikhail\\Tests\\PrRiskHighLighter\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Savin Mikhail",
+            "email": "mikhail.d.savin@gmail.com"
+        }
+    ],
+    "license": "MIT",
     "require-dev": {
-        "phpunit/phpunit": "^11.1"
+        "phpunit/phpunit": "^11.1",
+        "phpro/grumphp": "^2.5",
+        "squizlabs/php_codesniffer": "^3.9",
+        "phpmd/phpmd": "^2.15"
     },
     "require": {
-        "guzzlehttp/guzzle": "^7.8"
+        "guzzlehttp/guzzle": "^7.8",
+        "php": ">=8.2"
+    },
+    "config": {
+        "allow-plugins": {
+            "phpro/grumphp": true
+        }
     }
 }
