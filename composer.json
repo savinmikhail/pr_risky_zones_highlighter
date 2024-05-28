@@ -4,12 +4,12 @@
     "type": "library",
     "autoload": {
         "psr-4": {
-            "Savinmikhail\\PrRiskHighLighter\\": "src/"
+            "SavinMikhail\\PrRiskHighLighter\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Savinmikhail\\Tests\\PrRiskHighLighter\\": "tests/"
+            "SavinMikhail\\Tests\\PrRiskHighLighter\\": "tests/"
         }
     },
     "authors": [
