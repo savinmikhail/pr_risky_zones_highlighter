@@ -22,4 +22,4 @@ RUN composer install --no-dev --optimize-autoloader
 COPY src/ /app/src/
 
 # Set the entrypoint for the action
-ENTRYPOINT ["php", "/app/analyzer.php"]
+ENTRYPOINT ["php", "/app/src/analyzer.php"]
