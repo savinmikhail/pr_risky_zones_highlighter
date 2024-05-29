@@ -39,15 +39,17 @@ echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 
 $reviewId = $highlighter->startReview($repoFullName, $pullNumber);
-foreach ($analysis as $file => $comment) {
-    $highlighter->addReviewComment(
-        $repoFullName,
-        $pullNumber,
-        $reviewId,
-        $comment,
-        $file['file'],
-        $file['line'],
-    );
+foreach ($analysis as $file => $comments) {
+    foreach ($comments as $line => $comment) {
+        $highlighter->addReviewComment(
+            $repoFullName,
+            $pullNumber,
+            $reviewId,
+            $comment,
+            $file,
+            $line,
+        );
+    }
 }
 
 $highlighter->submitReview($repoFullName, $pullNumber, $reviewId);
