@@ -148,7 +148,7 @@ final readonly class Highlighter
         return $files;
     }
 
-    public function startReview(string $repoFullName, string $pullNumber): string
+    public function startReview(string $repoFullName, string $pullNumber): int
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
         $data = [
