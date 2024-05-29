@@ -55,35 +55,36 @@ final readonly class Highlighter
     {
         $responses = [];
         foreach ($files as $file => $data) {
-            $postData = json_encode([
+            $changesText = implode("\n", array_map(static function (array $change): string {
+                return "[line {$change['line']}] {$change['text']}";
+            }, $data));
+
+            $postData = [
                 'model' => 'gpt-3.5-turbo',
                 'messages' => [
                     [
                         "role" => "system",
                         "content" => "You are a senior developer. 
-                You will receive the code differences from pull request.
-                Review the changes for potential vulnerabilities, bugs or poor design.
-                            
-                You MUST provide the answer like: '
-                [line 3] - The addition of `declare(strict_types=1)` is a good 
-                practice to enforce strict typing in PHP, which can help in detecting type-related errors during 
-                development. Good addition to improve code quality.Successfully posted comment.
-                [line 10] - The usage of dd() in production environment may lead to code exposition'
-                
-                Other way I wouldn't be able to parse ypu response
-                
-                You can use GitHub markdown syntax."
+                        You will receive the code differences from pull request.
+                        Review the changes for potential vulnerabilities, bugs or poor design.
+                        You MUST provide the answer like: 
+                        '[line 3] - The addition of `declare(strict_types=1)` is a good 
+                        practice to enforce strict typing in PHP, which can help in detecting type-related errors 
+                        during development. Good addition to improve code quality.'
+                        '[line 10] - The usage of dd() in production environment may lead to code exposition'
+                        Other way I wouldn't be able to parse your response.
+                        You can use GitHub markdown syntax."
                     ],
                     [
                         "role" => "user",
-                        "content" => "Analyze changes to $file: " . print_r($data, true)
+                        "content" => "Analyze changes to $file:\n" . $changesText
                     ],
                 ],
                 'temperature' => 1.0,
                 'max_tokens' => 4000,
                 'frequency_penalty' => 0,
                 'presence_penalty' => 0,
-            ]);
+            ];
 
             try {
                 $response = $this->client->post("$gptUrl/v1/chat/completions", [
