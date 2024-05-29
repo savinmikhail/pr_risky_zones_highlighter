@@ -1,24 +1,3 @@
-diff --git a/.github/workflows/main.yml b/.github/workflows/main.yml
-index b33eede..1f9ed9a 100755
---- a/.github/workflows/main.yml
-+++ b/.github/workflows/main.yml
-@@ -9,10 +9,12 @@ jobs:
-     runs-on: ubuntu-latest
-
-     steps:
--    - name: Checkout code
--      uses: actions/checkout@v2
-
--    - name: Run custom action
--      uses: savinmikhail/pr_risky_zones_highlighter@v0.1.0
-+    - name: Run Risk Analysis
-+      uses: savinmikhail/pr_risky_zones_highlighter@0.1.x
-       with:
-         gpt_api_key: ${{ secrets.GPT_API_KEY }}
-+        gpt_url: 'https://api.proxyapi.ru/openai'
-+        github_token: ${{ secrets.GITHUB_TOKEN }}
-+        repo_full_name: ${{ github.repository }}
-+        pull_number: ${{ github.event.pull_request.number }}
 diff --git a/test.php b/test.php
 index 2eab8e2..467a3c3 100755
 --- a/test.php
