@@ -16,6 +16,39 @@ final readonly class Highlighter
     {
     }
 
+    public function getPullRequestCommitId(string $repoFullName, string $pullNumber): string
+    {
+        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
+
+        try {
+            $response = $this->client->get($url, [
+                'headers' => [
+                    'Authorization' => 'token ' . $this->githubToken,
+                    'User-Agent' => 'PHP Script',
+                    'Accept' => 'application/vnd.github.v3+json'
+                ]
+            ]);
+
+            if ($response->getStatusCode() !== 200) {
+                throw new \RuntimeException(
+                    'Failed to get pull request details. Status code: ' . $response->getStatusCode()
+                );
+            }
+
+            $responseArray = json_decode((string) $response->getBody(), true);
+            return $responseArray['head']['sha']; // The latest commit SHA on the pull request
+        } catch (RequestException $e) {
+            echo "Request error: " . $e->getMessage() . "\n";
+            if ($e->hasResponse()) {
+                echo "Response: " . $e->getResponse()->getBody() . "\n";
+            }
+            exit(1);
+        } catch (GuzzleException $e) {
+            echo "Request error: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+    }
+
     public function getPullRequestDiff(string $repoFullName, string $pullNumber): string
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
@@ -186,14 +219,15 @@ final readonly class Highlighter
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,
-        int $reviewId,
+        string $commitId,
         string $body,
         string $path,
-        int $position,
+        int $position
     ): void {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/comments";
+        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/comments";
         $data = [
             'body' => $body,
+            'commit_id' => $commitId,
             'path' => $path,
             'position' => $position
         ];
@@ -208,7 +242,7 @@ final readonly class Highlighter
                 'json' => $data,
             ]);
 
-            if ($response->getStatusCode() !== 201) {
+            if ($response->getStatusCode() !== 201) { // 201 Created
                 throw new \RuntimeException(
                     'Failed to add review comment. HTTP status: ' . $response->getStatusCode()
                 );

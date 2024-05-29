@@ -44,6 +44,9 @@ print_r($analysis);
 $reviewId = $highlighter->startReview($repoFullName, $pullNumber);
 $parser = new CommentParser();
 
+$commitId = $highlighter->getPullRequestCommitId($repoFullName, $pullNumber);
+echo "Commit ID: $commitId\n";
+
 foreach ($analysis as $file => $comments) {
     $parsed = $parser->parseComments($comments);
 
@@ -51,7 +54,7 @@ foreach ($analysis as $file => $comments) {
         $highlighter->addReviewComment(
             repoFullName:  $repoFullName,
             pullNumber: $pullNumber,
-            reviewId: $reviewId,
+            commitId: $commitId,
             body: $comment,
             path: $file,
             position: $line,
