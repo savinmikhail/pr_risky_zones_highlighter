@@ -236,9 +236,7 @@ final readonly class Highlighter
             'commit_id' => $commitId,
             'path' => $path,
 
-            'line' => $position,
-            'subject_type' => 'line',
-            'side' => 'LEFT'
+            'position' => $position,
         ];
         echo 'send comment with data: ' . PHP_EOL;
         print_r($data);
