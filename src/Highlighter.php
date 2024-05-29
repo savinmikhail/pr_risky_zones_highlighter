@@ -162,6 +162,7 @@ final readonly class Highlighter
 
             foreach ($diff->chunks() as $chunk) {
                 $currentPosition = $chunk->start();
+                $diffPosition = 0;
 
                 foreach ($chunk->lines() as $line) {
                     $type = $line->type();
@@ -171,12 +172,15 @@ final readonly class Highlighter
                         $files[$currentFile][] = [
                             'line' => $currentPosition,
                             'text' => $line->content(),
-                            'type' => $lineType
+                            'type' => $lineType,
+                            'diffPosition' => $diffPosition
                         ];
                     }
+
                     if ($type === Line::UNCHANGED || $type === Line::ADDED) {
                         $currentPosition++;
                     }
+                    $diffPosition++;
                 }
             }
         }

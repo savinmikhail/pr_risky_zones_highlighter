@@ -35,12 +35,11 @@ echo "\nFetched diffs are:\n";
 print_r($diffs);
 
 $parser = new Parser();
-$parsedDiffs = $parser->parse($diffs);
-$files = $highlighter->parseDiff($diffs);
+$parsedDiffs = $highlighter->parseDiff($diffs);
 echo "\n";
-print_r($files);
+print_r($parsedDiffs);
 
-$analysis = $highlighter->analyzeCodeWithChatGPT($files, $gptApiKey, $gptUrl);
+$analysis = $highlighter->analyzeCodeWithChatGPT($parsedDiffs, $gptApiKey, $gptUrl);
 echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 
@@ -54,13 +53,18 @@ foreach ($analysis as $file => $comments) {
     $parsedComments = $parser->parseComments($comments);
 
     foreach ($parsedComments as $line => $comment) {
+        foreach ($parsedDiffs[$file] as $diff) {
+            if ($diff['line'] === $line) {
+                $position = $diff['diffPosition'];
+            }
+        }
         $highlighter->addReviewComment(
             repoFullName: $repoFullName,
             pullNumber: $pullNumber,
             commitId: $commitId,
             body: $comment,
             path: $file,
-            position: $line,
+            position: $position,
         );
     }
 }
