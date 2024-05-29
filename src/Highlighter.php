@@ -229,7 +229,9 @@ final readonly class Highlighter
             'body' => $body,
             'commit_id' => $commitId,
             'path' => $path,
-            'position' => $position
+            'line' => $position,
+            'subject_type' => 'line',
+            'side' => 'LEFT'
         ];
 
         try {
