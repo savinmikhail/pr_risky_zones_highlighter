@@ -56,6 +56,7 @@ foreach ($analysis as $file => $comments) {
         foreach ($parsedDiffs[$file] as $diff) {
             if ($diff['line'] === $line) {
                 $position = $diff['diffPosition'];
+                $diffHunk = $diff['diffHunk'];
             }
         }
         $highlighter->addReviewComment(
@@ -65,6 +66,7 @@ foreach ($analysis as $file => $comments) {
             body: $comment,
             path: $file,
             position: $position,
+            diffHunk: $diffHunk
         );
     }
 }

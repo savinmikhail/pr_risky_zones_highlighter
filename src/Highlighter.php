@@ -162,7 +162,21 @@ final readonly class Highlighter
 
             foreach ($diff->chunks() as $chunk) {
                 $currentPosition = $chunk->start();
-                $diffPosition = 1;
+                $diffPosition = 1; // Start from 1
+
+                // Extract the hunk header for the diff
+                $diffHunk = "@@ -"
+                    . $chunk->start()
+                    . ","
+                    . $chunk->startRange()
+                    . " +"
+                    . $chunk->end()
+                    . ","
+                    . $chunk->endRange()
+                    . " @@\n";
+                foreach ($chunk->lines() as $line) {
+                    $diffHunk .= $line->content() . "\n";
+                }
 
                 foreach ($chunk->lines() as $line) {
                     $type = $line->type();
@@ -173,7 +187,8 @@ final readonly class Highlighter
                             'line' => $currentPosition,
                             'text' => $line->content(),
                             'type' => $lineType,
-                            'diffPosition' => $diffPosition
+                            'diffPosition' => $diffPosition,
+                            'diffHunk' => $diffHunk
                         ];
                     }
 
@@ -229,13 +244,14 @@ final readonly class Highlighter
         string $body,
         string $path,
         int $position,
+        string $diffHunk
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/comments";
         $data = [
             'body' => $body,
             'commit_id' => $commitId,
             'path' => $path,
-
+            'diff_hunk' => $diffHunk,
             'position' => $position,
         ];
         echo 'send comment with data: ' . PHP_EOL;
