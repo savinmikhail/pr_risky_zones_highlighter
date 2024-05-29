@@ -210,7 +210,7 @@ final readonly class Highlighter
                     'Failed to start review. HTTP status: ' . $response->getStatusCode()
                 );
             }
-
+            echo 'Started review successfully';
             $responseArray = json_decode((string) $response->getBody(), true);
             return $responseArray['id'];  // Review ID to use for adding comments
         } catch (RequestException $e) {
@@ -257,6 +257,7 @@ final readonly class Highlighter
                     'Failed to add review comment. HTTP status: ' . $response->getStatusCode()
                 );
             }
+            echo 'Added comment successfully' . PHP_EOL;
         } catch (RequestException $e) {
             echo "Request error: " . $e->getMessage() . "\n";
             if ($e->hasResponse()) {
@@ -272,7 +273,10 @@ final readonly class Highlighter
         int $reviewId,
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
-        $data = ['event' => 'COMMENT'];
+        $data = [
+            'event' => 'REQUEST_CHANGES',
+            'body' => 'Please address the review comments.'
+        ];
 
         try {
             $response = $this->client->post($url, [
