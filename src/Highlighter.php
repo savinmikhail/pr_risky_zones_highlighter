@@ -216,13 +216,39 @@ final readonly class Highlighter
         }
     }
 
+    public function findPositionInDiff(array $diffs, string $filePath, int $lineNumber): int
+    {
+        foreach ($diffs as $diff) {
+            if ($diff->to() === "b/$filePath") {
+                $position = 0;
+                foreach ($diff->chunks() as $chunk) {
+                    foreach ($chunk->lines() as $line) {
+                        if ($line->type() === Line::ADDED) {
+                            $position++;
+                        }
+                        if ($line->type() === Line::UNCHANGED) {
+                            $position++;
+                        }
+                        if ($line->type() === Line::REMOVED) {
+                            continue;
+                        }
+                        if ($line->type() === Line::ADDED && $line->lineNo() === $lineNumber) {
+                            return $position;
+                        }
+                    }
+                }
+            }
+        }
+        throw new \RuntimeException("Could not find the correct position for the comment in the diff.");
+    }
+
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,
         string $commitId,
         string $body,
         string $path,
-        int $position
+        int $position,
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/comments";
         $data = [
@@ -242,7 +268,7 @@ final readonly class Highlighter
                 'json' => $data,
             ]);
 
-            if ($response->getStatusCode() !== 201) { // 201 Created
+            if ($response->getStatusCode() !== 201) {
                 throw new \RuntimeException(
                     'Failed to add review comment. HTTP status: ' . $response->getStatusCode()
                 );

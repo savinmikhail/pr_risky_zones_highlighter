@@ -7,6 +7,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use GuzzleHttp\Client;
 use SavinMikhail\PrRiskHighLighter\CommentParser;
 use SavinMikhail\PrRiskHighLighter\Highlighter;
+use SebastianBergmann\Diff\Parser;
 
 // Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
 if ($argc < 6) {
@@ -33,6 +34,8 @@ $diffs = $highlighter->getPullRequestDiff($repoFullName, $pullNumber);
 echo "\nFetched diffs are:\n";
 print_r($diffs);
 
+$parser = new Parser();
+$parsedDiffs = $parser->parse($diffs);
 $files = $highlighter->parseDiff($diffs);
 echo "\n";
 print_r($files);
@@ -48,16 +51,17 @@ $commitId = $highlighter->getPullRequestCommitId($repoFullName, $pullNumber);
 echo "Commit ID: $commitId\n";
 
 foreach ($analysis as $file => $comments) {
-    $parsed = $parser->parseComments($comments);
+    $parsedComments = $parser->parseComments($comments);
 
-    foreach ($parsed as $line => $comment) {
+    foreach ($parsedComments as $line => $comment) {
+        $position = $highlighter->findPositionInDiff($parsedDiffs, $file, $line);
         $highlighter->addReviewComment(
-            repoFullName:  $repoFullName,
+            repoFullName: $repoFullName,
             pullNumber: $pullNumber,
             commitId: $commitId,
             body: $comment,
             path: $file,
-            position: $line,
+            position: $position,
         );
     }
 }
