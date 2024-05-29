@@ -49,12 +49,12 @@ foreach ($analysis as $file => $comments) {
 
     foreach ($parsed as $line => $comment) {
         $highlighter->addReviewComment(
-            $repoFullName,
-            $pullNumber,
-            $reviewId,
-            $line,
-            $file,
-            $comment,
+            repoFullName:  $repoFullName,
+            pullNumber: $pullNumber,
+            reviewId: $reviewId,
+            body: $comment,
+            path: $file,
+            position: $line,
         );
     }
 }
