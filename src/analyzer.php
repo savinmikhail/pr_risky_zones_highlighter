@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use GuzzleHttp\Client;
+use SavinMikhail\PrRiskHighLighter\CommentParser;
 use SavinMikhail\PrRiskHighLighter\Highlighter;
 
 // Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
@@ -41,15 +42,19 @@ echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 
 $reviewId = $highlighter->startReview($repoFullName, $pullNumber);
+$parser = new CommentParser();
+
 foreach ($analysis as $file => $comments) {
     foreach ($comments as $line => $comment) {
+        $parsed = $parser->parseComment($comments);
+
         $highlighter->addReviewComment(
             $repoFullName,
             $pullNumber,
             $reviewId,
-            $comment,
+            $parsed['comment'],
             $file,
-            $line,
+            $parsed['line'],
         );
     }
 }
