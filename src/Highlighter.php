@@ -55,7 +55,6 @@ final readonly class Highlighter
     {
         $responses = [];
         foreach ($files as $file => $data) {
-            $changesText = implode("\n", $data['changes']);
             $postData = json_encode([
                 'model' => 'gpt-3.5-turbo',
                 'messages' => [
@@ -77,7 +76,7 @@ final readonly class Highlighter
                     ],
                     [
                         "role" => "user",
-                        "content" => "Analyze changes to $file: $changesText"
+                        "content" => "Analyze changes to $file: " . print_r($data, true)
                     ],
                 ],
                 'temperature' => 1.0,
