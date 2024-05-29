@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use GuzzleHttp\Client;
-use SavinMikhail\PrRiskHighlighter\Highlighter;
+use SavinMikhail\PrRiskHighLighter\Highlighter;
 
 // Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
 if ($argc < 6) {
