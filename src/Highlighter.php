@@ -186,7 +186,7 @@ final readonly class Highlighter
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,
-        string $reviewId,
+        int $reviewId,
         string $body,
         string $path,
         int $position,
@@ -225,7 +225,7 @@ final readonly class Highlighter
     public function submitReview(
         string $repoFullName,
         string $pullNumber,
-        string $reviewId,
+        int $reviewId,
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
         $data = ['event' => 'COMMENT'];

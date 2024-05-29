@@ -45,16 +45,16 @@ $reviewId = $highlighter->startReview($repoFullName, $pullNumber);
 $parser = new CommentParser();
 
 foreach ($analysis as $file => $comments) {
-    foreach ($comments as $line => $comment) {
-        $parsed = $parser->parseComment($comments);
+    $parsed = $parser->parseComments($comments);
 
+    foreach ($parsed as $line => $comment) {
         $highlighter->addReviewComment(
             $repoFullName,
             $pullNumber,
             $reviewId,
-            $parsed['comment'],
+            $line,
             $file,
-            $parsed['line'],
+            $comment,
         );
     }
 }

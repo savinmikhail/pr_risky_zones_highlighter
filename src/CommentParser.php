@@ -6,18 +6,17 @@ namespace SavinMikhail\PrRiskHighLighter;
 
 class CommentParser
 {
-    public function parseComment(string $commentString): array
+    public function parseComments(string $comments): array
     {
-        // Use a regular expression to extract the line number and comment text
-        $pattern = '/\[line (\d+)\] - (.+)/';
-        if (preg_match($pattern, $commentString, $matches)) {
-            return [
-                'line' => (int)$matches[1], // Convert the line number to an integer
-                'comment' => $matches[2]   // Extract the comment text
-            ];
+        $parsedComments = [];
+        $pattern = '/\[line (\d+)\] - (.+?)(?=(?:\[line \d+\] -)|$)/s';
+
+        if (preg_match_all($pattern, $comments, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $parsedComments[(int)$match[1]] = trim($match[2]);
+            }
         }
 
-        // If the pattern does not match, return an empty array or handle the error as needed
-        return [];
+        return $parsedComments;
     }
 }
