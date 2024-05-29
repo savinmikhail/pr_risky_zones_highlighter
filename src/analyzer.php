@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-// Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
 use GuzzleHttp\Client;
 use SavinMikhail\PrRiskHighlighter\Highlighter;
 
+// Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
 if ($argc < 6) {
     echo "Insufficient arguments provided.\n";
     exit(1);
@@ -25,30 +25,29 @@ $repoFullName = $argv[4];
 $pullNumber = $argv[5];
 
 // Main workflow
-$highlighter = new Highlighter(new Client());
-$diffs = $highlighter-> getPullRequestDiff($repoFullName, $pullNumber, $githubToken);
+$highlighter = new Highlighter(new Client(), $githubToken);
+$diffs = $highlighter->getPullRequestDiff($repoFullName, $pullNumber);
 echo "\nFetched diffs are:\n";
 print_r($diffs);
 
-$files = $highlighter-> parseDiff($diffs);
+$files = $highlighter->parseDiff($diffs);
 echo "\n";
 print_r($files);
 
-$analysis = $highlighter-> analyzeCodeWithChatGPT($files, $gptApiKey, $gptUrl);
+$analysis = $highlighter->analyzeCodeWithChatGPT($files, $gptApiKey, $gptUrl);
 echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 
-$reviewId = $highlighter-> startReview($repoFullName, $pullNumber, $githubToken);
+$reviewId = $highlighter->startReview($repoFullName, $pullNumber);
 foreach ($analysis as $file => $comment) {
-    $highlighter-> addReviewComment(
+    $highlighter->addReviewComment(
         $repoFullName,
         $pullNumber,
         $reviewId,
         $comment,
         $file['file'],
         $file['line'],
-        $githubToken
     );
 }
 
-$highlighter-> submitReview($repoFullName, $pullNumber, $reviewId, $githubToken);
+$highlighter->submitReview($repoFullName, $pullNumber, $reviewId);

@@ -10,20 +10,22 @@ use GuzzleHttp\Exception\RequestException;
 use SebastianBergmann\Diff\Line;
 use SebastianBergmann\Diff\Parser;
 
+use function json_encode;
+
 final readonly class Highlighter
 {
-    public function __construct(private Client $client)
+    public function __construct(private Client $client, private string $githubToken)
     {
     }
 
-    public function getPullRequestDiff(string $repoFullName, string $pullNumber, string $githubToken): string
+    public function getPullRequestDiff(string $repoFullName, string $pullNumber): string
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
 
         try {
             $response = $this->client->get($url, [
                 'headers' => [
-                    'Authorization' => 'token ' . $githubToken,
+                    'Authorization' => 'token ' . $this->githubToken,
                     'User-Agent' => 'PHP Script',
                     'Accept' => 'application/vnd.github.v3.diff'
                 ]
@@ -121,23 +123,25 @@ final readonly class Highlighter
 
                 foreach ($chunk->lines() as $line) {
                     $type = $line->type();
-                    $lineType = $type === Line::ADDED ? 'add' : 'context';
-                    if ($type === 2) { // REMOVED
-                        continue;
-                    }
+                    $lineType = $type === Line::ADDED ? 'add' : ($type === Line::UNCHANGED ? 'context' : 'remove');
 
-                    $files[$currentFile][] = [
-                        'line' => $type === 0 ? $currentPosition++ : $currentPosition, // UNCHANGED
-                        'text' => $line->content(),
-                        'type' => $lineType
-                    ];
+                    if ($type !== Line::REMOVED) {
+                        $files[$currentFile][] = [
+                            'line' => $currentPosition,
+                            'text' => $line->content(),
+                            'type' => $lineType
+                        ];
+                    }
+                    if ($type === Line::UNCHANGED || $type === Line::ADDED) {
+                        $currentPosition++;
+                    }
                 }
             }
         }
         return $files;
     }
 
-    public function startReview(string $repoFullName, string $pullNumber, string $githubToken): string
+    public function startReview(string $repoFullName, string $pullNumber): string
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
         $data = ['event' => 'PENDING'];
@@ -145,7 +149,7 @@ final readonly class Highlighter
         try {
             $response = $this->client->post($url, [
                 'headers' => [
-                    'Authorization' => 'token ' . $githubToken,
+                    'Authorization' => 'token ' . $this->githubToken,
                     'User-Agent' => 'PHP Script',
                     'Content-Type' => 'application/json'
                 ],
@@ -176,7 +180,6 @@ final readonly class Highlighter
         string $body,
         string $path,
         int $position,
-        string $githubToken
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/comments";
         $data = [
@@ -188,7 +191,7 @@ final readonly class Highlighter
         try {
             $response = $this->client->post($url, [
                 'headers' => [
-                    'Authorization' => 'token ' . $githubToken,
+                    'Authorization' => 'token ' . $this->githubToken,
                     'User-Agent' => 'PHP Script',
                     'Content-Type' => 'application/json'
                 ],
@@ -213,7 +216,6 @@ final readonly class Highlighter
         string $repoFullName,
         string $pullNumber,
         string $reviewId,
-        string $githubToken
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
         $data = ['event' => 'COMMENT'];
@@ -221,7 +223,7 @@ final readonly class Highlighter
         try {
             $response = $this->client->post($url, [
                 'headers' => [
-                    'Authorization' => 'token ' . $githubToken,
+                    'Authorization' => 'token ' . $this->githubToken,
                     'User-Agent' => 'PHP Script',
                     'Content-Type' => 'application/json'
                 ],

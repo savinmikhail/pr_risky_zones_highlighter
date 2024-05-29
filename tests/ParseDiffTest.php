@@ -22,7 +22,7 @@ class ParseDiffTest extends TestCase
             ],
         ];
 
-        $highlighter = new Highlighter(new Client());
+        $highlighter = new Highlighter(new Client(), 'dummytoken');
         $actual = $highlighter->parseDiff($diff);
         $this->assertEquals($expected, $actual);
     }
