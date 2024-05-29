@@ -10,8 +10,6 @@ use GuzzleHttp\Exception\RequestException;
 use SebastianBergmann\Diff\Line;
 use SebastianBergmann\Diff\Parser;
 
-use function json_encode;
-
 final readonly class Highlighter
 {
     public function __construct(private Client $client, private string $githubToken)
@@ -153,7 +151,7 @@ final readonly class Highlighter
     public function startReview(string $repoFullName, string $pullNumber): string
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
-        $data = ['event' => 'PENDING'];
+        $data = ['event' => 'COMMENT'];
 
         try {
             $response = $this->client->post($url, [
@@ -165,7 +163,7 @@ final readonly class Highlighter
                 'json' => $data,
             ]);
 
-            if ($response->getStatusCode() !== 200) {
+            if ($response->getStatusCode() !== 201) {
                 throw new \RuntimeException(
                     'Failed to start review. HTTP status: ' . $response->getStatusCode()
                 );
@@ -181,7 +179,6 @@ final readonly class Highlighter
             exit(1);
         }
     }
-
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,
