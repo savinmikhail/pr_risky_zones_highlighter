@@ -216,32 +216,6 @@ final readonly class Highlighter
         }
     }
 
-    public function findPositionInDiff(array $diffs, string $filePath, int $lineNumber): int
-    {
-        foreach ($diffs as $diff) {
-            if ($diff->to() === "b/$filePath") {
-                $position = 0;
-                foreach ($diff->chunks() as $chunk) {
-                    foreach ($chunk->lines() as $line) {
-                        if ($line->type() === Line::ADDED) {
-                            $position++;
-                        }
-                        if ($line->type() === Line::UNCHANGED) {
-                            $position++;
-                        }
-                        if ($line->type() === Line::REMOVED) {
-                            continue;
-                        }
-                        if ($line->type() === Line::ADDED && $line->lineNo() === $lineNumber) {
-                            return $position;
-                        }
-                    }
-                }
-            }
-        }
-        throw new \RuntimeException("Could not find the correct position for the comment in the diff.");
-    }
-
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,

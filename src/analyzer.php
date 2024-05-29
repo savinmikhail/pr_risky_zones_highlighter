@@ -54,14 +54,13 @@ foreach ($analysis as $file => $comments) {
     $parsedComments = $parser->parseComments($comments);
 
     foreach ($parsedComments as $line => $comment) {
-        $position = $highlighter->findPositionInDiff($parsedDiffs, $file, $line);
         $highlighter->addReviewComment(
             repoFullName: $repoFullName,
             pullNumber: $pullNumber,
             commitId: $commitId,
             body: $comment,
             path: $file,
-            position: $position,
+            position: $line,
         );
     }
 }
