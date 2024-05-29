@@ -10,6 +10,8 @@ use GuzzleHttp\Exception\RequestException;
 use SebastianBergmann\Diff\Line;
 use SebastianBergmann\Diff\Parser;
 
+use const PHP_EOL;
+
 final readonly class Highlighter
 {
     public function __construct(private Client $client, private string $githubToken)
@@ -229,17 +231,21 @@ final readonly class Highlighter
             'body' => $body,
             'commit_id' => $commitId,
             'path' => $path,
+
             'line' => $position,
             'subject_type' => 'line',
             'side' => 'LEFT'
         ];
-
+        echo 'send comment with data: ' . PHP_EOL;
+        print_r($data);
         try {
             $response = $this->client->post($url, [
                 'headers' => [
-                    'Authorization' => 'token ' . $this->githubToken,
+                    'Authorization' => 'Bearer ' . $this->githubToken,
                     'User-Agent' => 'PHP Script',
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
+                    'X-GitHub-Api-Version' => '2022-11-28',
+                    'Accept' => 'application/vnd.github+json'
                 ],
                 'json' => $data,
             ]);
