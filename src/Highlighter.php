@@ -279,7 +279,7 @@ final readonly class Highlighter
             if ($e->hasResponse()) {
                 echo "Response: " . $e->getResponse()->getBody() . "\n";
             }
-            exit(1);
+            //do not fail the job, keep going
         }
     }
 
