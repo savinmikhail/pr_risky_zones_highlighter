@@ -151,7 +151,10 @@ final readonly class Highlighter
     public function startReview(string $repoFullName, string $pullNumber): string
     {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
-        $data = ['event' => 'COMMENT'];
+        $data = [
+            'body' => 'Starting review',
+            'event' => 'COMMENT'
+        ];
 
         try {
             $response = $this->client->post($url, [
@@ -163,7 +166,7 @@ final readonly class Highlighter
                 'json' => $data,
             ]);
 
-            if ($response->getStatusCode() !== 201) {
+            if ($response->getStatusCode() !== 200) { // 200 OK for creating a review
                 throw new \RuntimeException(
                     'Failed to start review. HTTP status: ' . $response->getStatusCode()
                 );
@@ -179,6 +182,7 @@ final readonly class Highlighter
             exit(1);
         }
     }
+
     public function addReviewComment(
         string $repoFullName,
         string $pullNumber,
