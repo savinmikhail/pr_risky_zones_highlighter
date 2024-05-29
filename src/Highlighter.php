@@ -207,7 +207,6 @@ final readonly class Highlighter
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
         $data = [
             'body' => 'Starting review',
-            'event' => 'COMMENT'
         ];
 
         try {
@@ -290,7 +289,7 @@ final readonly class Highlighter
     ): void {
         $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
         $data = [
-            'event' => 'REQUEST_CHANGES',
+            'event' => 'COMMENT',
             'body' => 'Please address the review comments.'
         ];
 
