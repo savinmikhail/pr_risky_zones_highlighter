@@ -64,6 +64,15 @@ final readonly class Highlighter
                         "content" => "You are a senior developer. 
                 You will receive the code differences from pull request.
                 Review the changes for potential vulnerabilities, bugs or poor design.
+                            
+                You MUST provide the answer like: '
+                [line 3] - The addition of `declare(strict_types=1)` is a good 
+                practice to enforce strict typing in PHP, which can help in detecting type-related errors during 
+                development. Good addition to improve code quality.Successfully posted comment.
+                [line 10] - The usage of dd() in production environment may lead to code exposition'
+                
+                Other way I wouldn't be able to parse ypu response
+                
                 You can use GitHub markdown syntax."
                     ],
                     [
