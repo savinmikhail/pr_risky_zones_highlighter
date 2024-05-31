@@ -1,3 +1,10 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..485dee6
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1 @@
++.idea
 diff --git a/test.php b/test.php
 index 2eab8e2..467a3c3 100755
 --- a/test.php

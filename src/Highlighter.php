@@ -107,7 +107,6 @@ final readonly class Highlighter
                 foreach ($parsedDiffs[$file] as $diff) {
                     if ($diff['line'] === $line) {
                         $position = $diff['diffPosition'];
-                        $diffHunk = $diff['diffHunk'];
                     }
                 }
                 $githubClient->addReviewComment(
@@ -115,7 +114,6 @@ final readonly class Highlighter
                     body: $comment,
                     path: $file,
                     position: $position,
-                    diffHunk: $diffHunk
                 );
             }
         }

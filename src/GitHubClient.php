@@ -160,15 +160,13 @@ final class GitHubClient
         string $body,
         string $path,
         int $position,
-        string $diffHunk
     ): void {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/comments";
         $data = [
             'body' => $body,
             'commit_id' => $commitId,
             'path' => $path,
-            'diff_hunk' => $diffHunk,
-            'position' => $position,
+            'line' => $position,
         ];
         echo 'about to send comment with data: ' . PHP_EOL;
         print_r($data);

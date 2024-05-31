@@ -35,7 +35,6 @@ final readonly class DiffParser
      * @param Line $line
      * @param int $currentPosition
      * @param int $diffPosition
-     * @param string $diffHunk
      * @param array $files
      * @param string $currentFile
      */
@@ -43,7 +42,6 @@ final readonly class DiffParser
         Line $line,
         int &$currentPosition,
         int &$diffPosition,
-        string $diffHunk,
         array &$files,
         string $currentFile
     ): void {
@@ -56,7 +54,6 @@ final readonly class DiffParser
                 'text' => $line->content(),
                 'type' => $lineType,
                 'diffPosition' => $diffPosition,
-                'diffHunk' => $diffHunk
             ];
         }
 
@@ -76,18 +73,11 @@ final readonly class DiffParser
         $currentPosition = $chunk->start();
         $diffPosition = 1; // Start from 1
 
-        // Extract the hunk header for the diff
-        $diffHunk = $this->createDiffHunkHeader($chunk);
-        foreach ($chunk->lines() as $line) {
-            $diffHunk .= $line->content() . PHP_EOL;
-        }
-
         foreach ($chunk->lines() as $line) {
             $this->processLine(
                 $line,
                 $currentPosition,
                 $diffPosition,
-                $diffHunk,
                 $files,
                 $currentFile
             );
@@ -97,18 +87,5 @@ final readonly class DiffParser
     private function normalizeFilePath(string $filePath): string
     {
         return str_starts_with($filePath, 'b/') ? substr($filePath, 2) : $filePath;
-    }
-
-    private function createDiffHunkHeader($chunk): string
-    {
-        return "@@ -"
-            . $chunk->start()
-            . ","
-            . $chunk->startRange()
-            . " +"
-            . $chunk->end()
-            . ","
-            . $chunk->endRange()
-            . " @@\n";
     }
 }
