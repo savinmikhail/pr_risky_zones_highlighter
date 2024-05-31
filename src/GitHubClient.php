@@ -15,18 +15,20 @@ use function print_r;
 
 use const PHP_EOL;
 
-final readonly class GitHubClient
+final class GitHubClient
 {
     private const BASE_URL = 'https://api.github.com/repos/';
     private const API_VERSION = 'application/vnd.github.v3+json';
     private const DIFF_API_VERSION = 'application/vnd.github.v3.diff';
     private const BOT_ID = 41898282;
 
+    private string $state;
+
     public function __construct(
-        private Client $client,
-        private string $githubToken,
-        private string $repoFullName,
-        private string $pullNumber
+        private readonly Client $client,
+        private readonly string $githubToken,
+        private readonly string $repoFullName,
+        private readonly string $pullNumber
     ) {
     }
 
@@ -45,6 +47,7 @@ final readonly class GitHubClient
                 && $review['user']['id'] === self::BOT_ID
             ) {
                 echo 'comments will be added to existing review ' . $review['id'] . PHP_EOL;
+                $this->state = $review['state'];
                 return $review['id'];  // Return the first pending review found for the bot user
             }
         }
@@ -70,7 +73,7 @@ final readonly class GitHubClient
         string $acceptHeader = self::API_VERSION,
     ): string {
         $headers = [
-            'Authorization' => 'token ' . $this->githubToken,
+            'Authorization' => 'Bearer ' . $this->githubToken,
             'User-Agent' => 'PHP Script',
             'Accept' => $acceptHeader,
             'Content-Type' => 'application/json',
@@ -167,14 +170,21 @@ final readonly class GitHubClient
             'diff_hunk' => $diffHunk,
             'position' => $position,
         ];
-        echo 'send comment with data: ' . PHP_EOL;
+        echo 'about to send comment with data: ' . PHP_EOL;
         print_r($data);
         try {
             $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json');
+            echo 'comment posted successfully' . PHP_EOL;
             //we want to catch exception here to try to submit other comments
         } catch (Exception) {
+            echo 'failed to post comment';
             //doing nothing here
         }
+    }
+
+    private function shouldSubmitReview(): bool
+    {
+        return $this->state === 'PENDING';
     }
 
     /**
@@ -184,6 +194,9 @@ final readonly class GitHubClient
     public function submitReview(
         int $reviewId,
     ): void {
+        if (! $this->shouldSubmitReview()) {
+            return;
+        }
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews/$reviewId/events";
         $data = [
             'event' => 'COMMENT',
