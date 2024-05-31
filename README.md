@@ -11,30 +11,29 @@ Remember that ChatGPT API isn't for free. The action uses gpt-3.5-turbo.
 ### Required Inputs
 
 - `gpt_api_key`: The API key for accessing ChatGPT to analyze the pull request.
-  - **Description**: API key for accessing ChatGPT.
   - **Required**: Yes
   - **Example**: sk-g33uNV6xasvglAk14N5chOQsFcs1lsFi
 
 - `gpt_url`: The URL to ChatGPT.
-  - **Description**: The URL to ChatGPT.
   - **Required**: Yes
   - **Example**: https://api.proxyapi.ru/openai (use this proxy, if you are in Russia) or https://api.openai.com.
-  
 
 - `github_token`: The GitHub token used to fetch pull request details and post comments.
-  - **Description**: GitHub token for accessing repository data.
   - **Required**: Yes
   - You don't need to add it to secrets manually, GitHub will do it
 
-- `repo_full_name`: The full name of the repository that the pull request is made to.
-  - **Description**: Full name of the repository, e.g., "octocat/hello-world".
+- `repo_full_name`: The full name of the repository that the pull request is made to, e.g., "octocat/hello-world".
   - **Required**: Yes
   - You don't need to add it to secrets manually, GitHub will do it
 
 - `pull_number`: The number associated with the pull request to analyze.
-  - **Description**: The number of the pull request to analyze.
   - **Required**: Yes
   - You don't need to add it to secrets manually, GitHub will do it
+
+- `max_comments`: The limit for ChatGPT to give comments. For example, if set to 1, only one, the riskiest part of the 
+PR will be highlighted
+  - **Required**: No
+  - If not provided, the CHatGPT wouldn't be limited
 
 ## Outputs
 

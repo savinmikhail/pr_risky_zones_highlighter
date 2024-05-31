@@ -27,6 +27,10 @@ $gptUrl = $argv[2];
 $githubToken = $argv[3];
 $repoFullName = $argv[4];
 $pullNumber = $argv[5];
+$maxComments = PHP_INT_MAX;
+if (isset($argv[6])) {
+    $maxComments = $argv[6];
+}
 
 // Main workflow
 $highlighter = new Highlighter(new Client(), $githubToken);
@@ -39,7 +43,7 @@ $parsedDiffs = $highlighter->parseDiff($diffs);
 echo "\n";
 print_r($parsedDiffs);
 
-$analysis = $highlighter->analyzeCodeWithChatGPT($parsedDiffs, $gptApiKey, $gptUrl);
+$analysis = $highlighter->analyzeCodeWithChatGPT($parsedDiffs, $gptApiKey, $gptUrl, $maxComments);
 echo "\nChatGPT analysis is:\n";
 print_r($analysis);
 

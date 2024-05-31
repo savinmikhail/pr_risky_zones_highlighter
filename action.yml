@@ -16,6 +16,9 @@ inputs:
   pull_number:
     description: 'The number of the pull request to analyze.'
     required: true
+  max_comments:
+    description: 'The maximum amount of comments that might be provided. If you set it to 1, only 1, the most riskiest 
+    part of the PR will be highlighted'
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -25,3 +28,4 @@ runs:
     - ${{ inputs.github_token }}
     - ${{ inputs.repo_full_name }}
     - ${{ inputs.pull_number }}
+    - ${{ inputs.max_comments }}

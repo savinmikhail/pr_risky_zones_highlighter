@@ -84,34 +84,38 @@ final readonly class Highlighter
         }
     }
 
-    public function analyzeCodeWithChatGPT(array $files, string $gptApiKey, string $gptUrl): array
-    {
+    public function analyzeCodeWithChatGPT(
+        array $files,
+        string $gptApiKey,
+        string $gptUrl,
+        int $maxComments
+    ): array {
         $responses = [];
+        $remainingComments = $maxComments; // Initialize with the total allowed comments
+
         foreach ($files as $file => $data) {
+            if ($remainingComments <= 0){
+                break; // Stop processing if no more comments are allowed
+            }
+
             $changesText = implode("\n", array_map(static function (array $change): string {
                 return "[line {$change['line']}] {$change['text']}";
             }, $data));
 
+            $systemPrompt = "You are a senior developer. Review the code differences from a pull request for potential 
+            vulnerabilities, bugs, or poor design. 
+            Do not mention what is good. 
+            Only risky parts must be commented. 
+            You MUST provide at most $remainingComments comments, so choose the most riskiest parts of the code. 
+            Use the format: '[line X] - Comment'. 
+            Each comment must start from a new line. 
+            You can use GitHub markdown syntax.";
+
             $postData = [
                 'model' => 'gpt-3.5-turbo',
                 'messages' => [
-                    [
-                        "role" => "system",
-                        "content" => "You are a senior developer. 
-                        You will receive the code differences from pull request.
-                        Review the changes for potential vulnerabilities, bugs or poor design.
-                        Do not say what is good. Only risky parts must be commented.
-                        You MUST provide the answer like: 
-                        '[line 3] - The addition of `declare(strict_types=1)` may lead to errors in previous code, 
-                        which worked with php type conversion'
-                        '[line 10] - The usage of dd() in production environment may lead to code exposition'
-                        Other way I wouldn't be able to parse your response.
-                        You can use GitHub markdown syntax."
-                    ],
-                    [
-                        "role" => "user",
-                        "content" => "Analyze changes to $file:\n" . $changesText
-                    ],
+                    ["role" => "system", "content" => $systemPrompt],
+                    ["role" => "user", "content" => "Analyze changes to $file:\n" . $changesText]
                 ],
                 'temperature' => 1.0,
                 'max_tokens' => 4000,
@@ -136,7 +140,13 @@ final readonly class Highlighter
 
                 $responseArray = json_decode((string) $response->getBody(), true);
                 echo "Successfully get review from ChatGPT.\n";
-                $responses[$file] = $responseArray['choices'][0]['message']['content'];
+                $content = $responseArray['choices'][0]['message']['content'];
+                $comments = explode("\n", $content);
+                if (count($comments) > $remainingComments) {
+                    $comments = array_slice($comments, 0, $remainingComments);
+                }
+                $responses[$file] = implode("\n", $comments);
+                $remainingComments -= count($comments);
             } catch (RequestException $e) {
                 echo "Request error: " . $e->getMessage() . "\n";
                 if ($e->hasResponse()) {
