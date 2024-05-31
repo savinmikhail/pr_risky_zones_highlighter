@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SavinMikhail\PrRiskHighLighter;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 use function print_r;
 
@@ -36,17 +37,46 @@ final readonly class Highlighter
         }
     }
 
+    private function getGptApiKey(): string
+    {
+        return $this->argv[1];
+    }
+
+    private function getGptUrl(): string
+    {
+        return $this->argv[2];
+    }
+    private function getGitHubToken(): string
+    {
+        return $this->argv[3];
+    }
+    private function getRepoFullName(): string
+    {
+        return $this->argv[4];
+    }
+    private function getPullNumber(): string
+    {
+        return $this->argv[5];
+    }
+    private function getMaxComments(): int
+    {
+        return $this->argv[6] ? intval($this->argv[6]) : PHP_INT_MAX;
+    }
+
+    /**
+     * @throws GuzzleException
+     */
     public function review(): void
     {
         $this->validateInput();
-        $gptApiKey = $this->argv[1];
-        $gptUrl = $this->argv[2];
-        $githubToken = $this->argv[3];
-        $repoFullName = $this->argv[4];
-        $pullNumber = $this->argv[5];
-        $maxComments = $this->argv[6] ?? PHP_INT_MAX;
 
-        $githubClient = new GitHubClient($this->client, $githubToken, $repoFullName, $pullNumber);
+        $githubClient = new GitHubClient(
+            $this->client,
+            $this->getGitHubToken(),
+            $this->getRepoFullName(),
+            $this->getPullNumber()
+        );
+
         $diffs = $githubClient->getPullRequestDiff();
         echo "\nFetched diffs are:\n" . print_r($diffs, true);
 
@@ -54,8 +84,8 @@ final readonly class Highlighter
         $parsedDiffs = $parser->parseDiff($diffs);
         echo "\n" . print_r($parsedDiffs, true);
 
-        $chatGPTAnalyzer = new ChatGPTAnalyzer($this->client, $gptApiKey, $gptUrl);
-        $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $maxComments);
+        $chatGPTAnalyzer = new ChatGPTAnalyzer($this->client, $this->getGptApiKey(), $this->getGptUrl());
+        $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $this->getMaxComments());
         echo "\nChatGPT analysis is:\n" . print_r($analysis, true);
 
         $reviewId = $githubClient->startReview();
