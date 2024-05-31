@@ -42,21 +42,21 @@ final readonly class Highlighter
         $pullNumber = $this->argv[5];
         $maxComments = $this->argv[6] ?? PHP_INT_MAX;
 
-        $githubClient = new GitHubClient($this->client, $githubToken);
-        $diffs = $githubClient->getPullRequestDiff($repoFullName, $pullNumber);
+        $githubClient = new GitHubClient($this->client, $githubToken, $repoFullName, $pullNumber);
+        $diffs = $githubClient->getPullRequestDiff();
         echo "\nFetched diffs are:\n" . print_r($diffs, true);
 
         $parser = new DiffParser();
         $parsedDiffs = $parser->parseDiff($diffs);
         echo "\n" . print_r($parsedDiffs, true);
 
-        $chatGPTAnalyzer = new ChatGPTAnalyzer($this->client);
-        $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $gptApiKey, $gptUrl, $maxComments);
+        $chatGPTAnalyzer = new ChatGPTAnalyzer($this->client, $gptApiKey, $gptUrl);
+        $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $maxComments);
         echo "\nChatGPT analysis is:\n" . print_r($analysis, true);
 
-        $reviewId = $githubClient->startReview($repoFullName, $pullNumber);
+        $reviewId = $githubClient->startReview();
 
-        $commitId = $githubClient->getPullRequestCommitId($repoFullName, $pullNumber);
+        $commitId = $githubClient->getPullRequestCommitId();
         echo "Commit ID: $commitId\n";
 
         $parser = new CommentParser();
@@ -71,8 +71,6 @@ final readonly class Highlighter
                     }
                 }
                 $githubClient->addReviewComment(
-                    repoFullName: $repoFullName,
-                    pullNumber: $pullNumber,
                     commitId: $commitId,
                     body: $comment,
                     path: $file,
@@ -82,6 +80,6 @@ final readonly class Highlighter
             }
         }
 
-        $githubClient->submitReview($repoFullName, $pullNumber, $reviewId);
+        $githubClient->submitReview($reviewId);
     }
 }

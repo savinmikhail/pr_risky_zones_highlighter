@@ -20,14 +20,15 @@ use const PHP_EOL;
 
 final readonly class ChatGPTAnalyzer
 {
-    public function __construct(private Client $client)
-    {
+    public function __construct(
+        private Client $client,
+        private string $gptApiKey,
+        private string $gptUrl,
+    ) {
     }
 
     public function analyzeCodeWithChatGPT(
         array $files,
-        string $gptApiKey,
-        string $gptUrl,
         int $maxComments
     ): array {
         $responses = [];
@@ -44,7 +45,7 @@ final readonly class ChatGPTAnalyzer
             $postData = $this->createPostData($systemPrompt, $file, $changesText);
 
             try {
-                $content = $this->getPostResponse($postData, $gptApiKey, $gptUrl);
+                $content = $this->getPostResponse($postData, $this->gptApiKey, $this->gptUrl);
                 $comments = $this->processComments($content, $remainingComments);
 
                 $responses[$file] = implode(PHP_EOL, $comments);

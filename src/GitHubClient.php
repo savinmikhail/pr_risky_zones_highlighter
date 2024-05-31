@@ -20,8 +20,12 @@ final readonly class GitHubClient
     private const API_VERSION = "application/vnd.github.v3+json";
     private const DIFF_API_VERSION = "application/vnd.github.v3.diff";
 
-    public function __construct(private Client $client, private string $githubToken)
-    {
+    public function __construct(
+        private Client $client,
+        private string $githubToken,
+        private string $repoFullName,
+        private string $pullNumber
+    ) {
     }
 
     private function githubApiRequest(
@@ -63,25 +67,25 @@ final readonly class GitHubClient
         }
     }
 
-    public function getPullRequestCommitId(string $repoFullName, string $pullNumber): string
+    public function getPullRequestCommitId(): string
     {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber";
         $response = $this->githubApiRequest($url);
         $responseArray = json_decode($response, true);
         return $responseArray['head']['sha']; // The latest commit SHA on the pull request
     }
 
-    public function getPullRequestDiff(string $repoFullName, string $pullNumber): string
+    public function getPullRequestDiff(): string
     {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber";
         return $this->githubApiRequest(
             $url,
             acceptHeader: self::DIFF_API_VERSION
         );
     }
-    public function startReview(string $repoFullName, string $pullNumber): int
+    public function startReview(): int
     {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews";
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
         $data = [
             'body' => 'Starting review',
         ];
@@ -98,15 +102,13 @@ final readonly class GitHubClient
     }
 
     public function addReviewComment(
-        string $repoFullName,
-        string $pullNumber,
         string $commitId,
         string $body,
         string $path,
         int $position,
         string $diffHunk
     ): void {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/comments";
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/comments";
         $data = [
             'body' => $body,
             'commit_id' => $commitId,
@@ -120,11 +122,9 @@ final readonly class GitHubClient
     }
 
     public function submitReview(
-        string $repoFullName,
-        string $pullNumber,
         int $reviewId,
     ): void {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews/$reviewId/events";
         $data = [
             'event' => 'COMMENT',
             'body' => 'Please address the review comments.'
