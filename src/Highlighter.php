@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SavinMikhail\PrRiskHighLighter;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
@@ -25,74 +26,68 @@ use const PHP_EOL;
 
 final readonly class Highlighter
 {
+    private const BASE_URL = "https://api.github.com/repos/";
+    private const API_VERSION = "application/vnd.github.v3+json";
+    private const DIFF_API_VERSION = "application/vnd.github.v3.diff";
+
     public function __construct(private Client $client, private string $githubToken)
     {
     }
 
-    public function getPullRequestCommitId(string $repoFullName, string $pullNumber): string
-    {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
+    private function githubApiRequest(
+        string $url,
+        string $method = 'GET',
+        array $data = [],
+        string $acceptHeader = self::API_VERSION,
+        bool $shouldFail = true
+    ): string {
+        $headers = [
+            'Authorization' => 'token ' . $this->githubToken,
+            'User-Agent' => 'PHP Script',
+            'Accept' => $acceptHeader,
+            'Content-Type' => 'application/json',
+            'X-GitHub-Api-Version' => '2022-11-28',
+        ];
+
+        $options = ['headers' => $headers];
+        if ($method !== 'GET') {
+            $options['json'] = $data;
+        }
 
         try {
-            $response = $this->client->get($url, [
-                'headers' => [
-                    'Authorization' => 'token ' . $this->githubToken,
-                    'User-Agent' => 'PHP Script',
-                    'Accept' => 'application/vnd.github.v3+json'
-                ]
-            ]);
+            $response = $this->client->request($method, $url, $options);
 
-            if ($response->getStatusCode() !== 200) {
-                throw new \RuntimeException(
-                    'Failed to get pull request details. Status code: ' . $response->getStatusCode()
-                );
+            if ($response->getStatusCode() >= 400) {
+                throw new RuntimeException("HTTP error: " . $response->getStatusCode());
             }
 
-            $responseArray = json_decode((string) $response->getBody(), true);
-            return $responseArray['head']['sha']; // The latest commit SHA on the pull request
-        } catch (RequestException $e) {
+            return $response->getBody()->getContents();
+        } catch (RequestException | GuzzleException $e) {
             echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
                 echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
-            exit(1);
-        } catch (GuzzleException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            exit(1);
+            if ($shouldFail) {
+                exit(1);
+            }
         }
+    }
+
+    public function getPullRequestCommitId(string $repoFullName, string $pullNumber): string
+    {
+        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
+        $response = $this->githubApiRequest($url);
+        $responseArray = json_decode($response, true);
+        return $responseArray['head']['sha']; // The latest commit SHA on the pull request
     }
 
     public function getPullRequestDiff(string $repoFullName, string $pullNumber): string
     {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber";
-
-        try {
-            $response = $this->client->get($url, [
-                'headers' => [
-                    'Authorization' => 'token ' . $this->githubToken,
-                    'User-Agent' => 'PHP Script',
-                    'Accept' => 'application/vnd.github.v3.diff'
-                ]
-            ]);
-
-            if ($response->getStatusCode() !== 200) {
-                throw new \RuntimeException(
-                    'Failed to get PR differences. Status code: ' . $response->getStatusCode()
-                );
-            }
-
-            echo "Successfully get PR differences.\n";
-            return (string) $response->getBody();
-        } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
-            }
-            exit(1);
-        } catch (GuzzleException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            exit(1);
-        }
+        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
+        return $this->githubApiRequest(
+            $url,
+            acceptHeader: self::DIFF_API_VERSION
+        );
     }
 
     public function analyzeCodeWithChatGPT(
@@ -122,7 +117,7 @@ final readonly class Highlighter
                 $remainingComments -= count($comments);
 
                 echo "Successfully got review from ChatGPT.\n";
-            } catch (\RuntimeException $e) {
+            } catch (Exception $e) {
                 echo "Error: " . $e->getMessage() . PHP_EOL;
                 exit(1);
             }
@@ -249,36 +244,20 @@ final readonly class Highlighter
 
     public function startReview(string $repoFullName, string $pullNumber): int
     {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews";
+        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews";
         $data = [
             'body' => 'Starting review',
         ];
 
-        try {
-            $response = $this->client->post($url, [
-                'headers' => [
-                    'Authorization' => 'token ' . $this->githubToken,
-                    'User-Agent' => 'PHP Script',
-                    'Content-Type' => 'application/json'
-                ],
-                'json' => $data,
-            ]);
+        $response = $this->githubApiRequest($url, 'POST', $data);
 
-            if ($response->getStatusCode() !== 200) { // 200 OK for creating a review
-                throw new RuntimeException(
-                    'Failed to start review. HTTP status: ' . $response->getStatusCode()
-                );
-            }
-            echo 'Started review successfully';
-            $responseArray = json_decode((string) $response->getBody(), true);
-            return $responseArray['id'];  // Review ID to use for adding comments
-        } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
-            }
-            exit(1);
+        $responseArray = json_decode($response, true);
+        if (!isset($responseArray['id'])) {
+            throw new RuntimeException('Failed to retrieve review ID from response.');
         }
+
+        echo 'Started review successfully.' . PHP_EOL;
+        return $responseArray['id'];  // Return the review ID to use for adding comments
     }
 
     public function addReviewComment(
@@ -290,7 +269,7 @@ final readonly class Highlighter
         int $position,
         string $diffHunk
     ): void {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/comments";
+        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/comments";
         $data = [
             'body' => $body,
             'commit_id' => $commitId,
@@ -300,31 +279,7 @@ final readonly class Highlighter
         ];
         echo 'send comment with data: ' . PHP_EOL;
         print_r($data);
-        try {
-            $response = $this->client->post($url, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->githubToken,
-                    'User-Agent' => 'PHP Script',
-                    'Content-Type' => 'application/json',
-                    'X-GitHub-Api-Version' => '2022-11-28',
-                    'Accept' => 'application/vnd.github+json'
-                ],
-                'json' => $data,
-            ]);
-
-            if ($response->getStatusCode() !== 201) {
-                throw new \RuntimeException(
-                    'Failed to add review comment. HTTP status: ' . $response->getStatusCode()
-                );
-            }
-            echo 'Added comment successfully' . PHP_EOL;
-        } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
-            }
-            //do not fail the job, keep going
-        }
+        $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json', false);
     }
 
     public function submitReview(
@@ -332,35 +287,12 @@ final readonly class Highlighter
         string $pullNumber,
         int $reviewId,
     ): void {
-        $url = "https://api.github.com/repos/$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
+        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
         $data = [
             'event' => 'COMMENT',
             'body' => 'Please address the review comments.'
         ];
-
-        try {
-            $response = $this->client->post($url, [
-                'headers' => [
-                    'Authorization' => 'token ' . $this->githubToken,
-                    'User-Agent' => 'PHP Script',
-                    'Content-Type' => 'application/json'
-                ],
-                'json' => $data,
-            ]);
-
-            if ($response->getStatusCode() !== 200) {
-                throw new \RuntimeException(
-                    'Failed to submit review. HTTP status: ' . $response->getStatusCode()
-                );
-            }
-
-            echo "Review submitted successfully.\n";
-        } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
-            }
-            exit(1);
-        }
+        $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json');
+        echo "Review submitted successfully.\n";
     }
 }
