@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SavinMikhail\PrRiskHighLighter;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -46,25 +47,30 @@ final readonly class Highlighter
     {
         return $this->argv[2];
     }
+
     private function getGitHubToken(): string
     {
         return $this->argv[3];
     }
+
     private function getRepoFullName(): string
     {
         return $this->argv[4];
     }
+
     private function getPullNumber(): string
     {
         return $this->argv[5];
     }
+
     private function getMaxComments(): int
     {
-        return $this->argv[6] ? intval($this->argv[6]) : PHP_INT_MAX;
+        return isset($this->argv[6]) ? intval($this->argv[6]) : PHP_INT_MAX;
     }
 
     /**
      * @throws GuzzleException
+     * @throws Exception
      */
     public function review(): void
     {
