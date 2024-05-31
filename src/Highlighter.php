@@ -7,8 +7,19 @@ namespace SavinMikhail\PrRiskHighLighter;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use RuntimeException;
 use SebastianBergmann\Diff\Line;
 use SebastianBergmann\Diff\Parser;
+
+use function array_map;
+use function array_slice;
+use function explode;
+use function implode;
+use function json_decode;
+use function min;
+use function print_r;
+use function str_starts_with;
+use function substr;
 
 use const PHP_EOL;
 
@@ -40,13 +51,13 @@ final readonly class Highlighter
             $responseArray = json_decode((string) $response->getBody(), true);
             return $responseArray['head']['sha']; // The latest commit SHA on the pull request
         } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . "\n";
+                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             exit(1);
         } catch (GuzzleException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             exit(1);
         }
     }
@@ -73,13 +84,13 @@ final readonly class Highlighter
             echo "Successfully get PR differences.\n";
             return (string) $response->getBody();
         } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . "\n";
+                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             exit(1);
         } catch (GuzzleException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             exit(1);
         }
     }
@@ -94,15 +105,41 @@ final readonly class Highlighter
         $remainingComments = $maxComments; // Initialize with the total allowed comments
 
         foreach ($files as $file => $data) {
-            if ($remainingComments <= 0){
+            if ($remainingComments <= 0) {
                 break; // Stop processing if no more comments are allowed
             }
 
-            $changesText = implode("\n", array_map(static function (array $change): string {
-                return "[line {$change['line']}] {$change['text']}";
-            }, $data));
+            $changesText = $this->formatChanges($data);
+            $systemPrompt = $this->createSystemPrompt($remainingComments);
 
-            $systemPrompt = "You are a senior developer. Review the code differences from a pull request for potential 
+            $postData = $this->createPostData($systemPrompt, $file, $changesText);
+
+            try {
+                $content = $this->getPostResponse($postData, $gptApiKey, $gptUrl);
+                $comments = $this->processComments($content, $remainingComments);
+
+                $responses[$file] = implode(PHP_EOL, $comments);
+                $remainingComments -= count($comments);
+
+                echo "Successfully got review from ChatGPT.\n";
+            } catch (\RuntimeException $e) {
+                echo "Error: " . $e->getMessage() . PHP_EOL;
+                exit(1);
+            }
+        }
+        return $responses;
+    }
+
+    private function formatChanges(array $data): string
+    {
+        return implode(PHP_EOL, array_map(static function (array $change): string {
+            return "[line {$change['line']}] {$change['text']}";
+        }, $data));
+    }
+
+    private function createSystemPrompt(int $remainingComments): string
+    {
+        return "You are a senior developer. Review the code differences from a pull request for potential 
             vulnerabilities, bugs, or poor design. 
             Do not mention what is good. 
             Only risky parts must be commented. 
@@ -110,52 +147,50 @@ final readonly class Highlighter
             Use the format: '[line X] - Comment'. 
             Each comment must start from a new line. 
             You can use GitHub markdown syntax.";
+    }
 
-            $postData = [
-                'model' => 'gpt-3.5-turbo',
-                'messages' => [
-                    ["role" => "system", "content" => $systemPrompt],
-                    ["role" => "user", "content" => "Analyze changes to $file:\n" . $changesText]
-                ],
-                'temperature' => 1.0,
-                'max_tokens' => 4000,
-                'frequency_penalty' => 0,
-                'presence_penalty' => 0,
-            ];
+    private function createPostData(string $systemPrompt, string $file, string $changesText): array
+    {
+        return [
+            'model' => 'gpt-3.5-turbo',
+            'messages' => [
+                ["role" => "system", "content" => $systemPrompt],
+                ["role" => "user", "content" => "Analyze changes to $file:\n" . $changesText]
+            ],
+            'temperature' => 1.0,
+            'max_tokens' => 4000,
+            'frequency_penalty' => 0,
+            'presence_penalty' => 0,
+        ];
+    }
 
-            try {
-                $response = $this->client->post("$gptUrl/v1/chat/completions", [
-                    'headers' => [
-                        'Content-Type' => 'application/json',
-                        'Authorization' => 'Bearer ' . $gptApiKey,
-                    ],
-                    'json' => $postData,
-                ]);
+    /**
+     * @throws GuzzleException
+     */
+    private function getPostResponse(array $postData, string $gptApiKey, string $gptUrl): string
+    {
+        $response = $this->client->post("$gptUrl/v1/chat/completions", [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $gptApiKey,
+            ],
+            'json' => $postData,
+        ]);
 
-                if ($response->getStatusCode() !== 200) {
-                    throw new \RuntimeException(
-                        'Failed to get review from ChatGPT. Status code: ' . $response->getStatusCode()
-                    );
-                }
-
-                $responseArray = json_decode((string) $response->getBody(), true);
-                echo "Successfully get review from ChatGPT.\n";
-                $content = $responseArray['choices'][0]['message']['content'];
-                $comments = explode("\n", $content);
-                if (count($comments) > $remainingComments) {
-                    $comments = array_slice($comments, 0, $remainingComments);
-                }
-                $responses[$file] = implode("\n", $comments);
-                $remainingComments -= count($comments);
-            } catch (RequestException $e) {
-                echo "Request error: " . $e->getMessage() . "\n";
-                if ($e->hasResponse()) {
-                    echo "Response: " . $e->getResponse()->getBody() . "\n";
-                }
-                exit(1);
-            }
+        if ($response->getStatusCode() !== 200) {
+            throw new RuntimeException(
+                'Failed to get review from ChatGPT. Status code: ' . $response->getStatusCode()
+            );
         }
-        return $responses;
+
+        $responseArray = json_decode((string) $response->getBody(), true);
+        return $responseArray['choices'][0]['message']['content'];
+    }
+
+    private function processComments(string $content, int $remainingComments): array
+    {
+        $comments = explode(PHP_EOL, $content);
+        return array_slice($comments, 0, min(count($comments), $remainingComments));
     }
 
     public function parseDiff(string $diff): array
@@ -185,7 +220,7 @@ final readonly class Highlighter
                     . $chunk->endRange()
                     . " @@\n";
                 foreach ($chunk->lines() as $line) {
-                    $diffHunk .= $line->content() . "\n";
+                    $diffHunk .= $line->content() . PHP_EOL;
                 }
 
                 foreach ($chunk->lines() as $line) {
@@ -230,7 +265,7 @@ final readonly class Highlighter
             ]);
 
             if ($response->getStatusCode() !== 200) { // 200 OK for creating a review
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'Failed to start review. HTTP status: ' . $response->getStatusCode()
                 );
             }
@@ -238,9 +273,9 @@ final readonly class Highlighter
             $responseArray = json_decode((string) $response->getBody(), true);
             return $responseArray['id'];  // Review ID to use for adding comments
         } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . "\n";
+                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             exit(1);
         }
@@ -284,9 +319,9 @@ final readonly class Highlighter
             }
             echo 'Added comment successfully' . PHP_EOL;
         } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . "\n";
+                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             //do not fail the job, keep going
         }
@@ -321,9 +356,9 @@ final readonly class Highlighter
 
             echo "Review submitted successfully.\n";
         } catch (RequestException $e) {
-            echo "Request error: " . $e->getMessage() . "\n";
+            echo "Request error: " . $e->getMessage() . PHP_EOL;
             if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . "\n";
+                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             exit(1);
         }
