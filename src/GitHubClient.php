@@ -16,9 +16,10 @@ use const PHP_EOL;
 
 final readonly class GitHubClient
 {
-    private const BASE_URL = "https://api.github.com/repos/";
-    private const API_VERSION = "application/vnd.github.v3+json";
-    private const DIFF_API_VERSION = "application/vnd.github.v3.diff";
+    private const BASE_URL = 'https://api.github.com/repos/';
+    private const API_VERSION = 'application/vnd.github.v3+json';
+    private const DIFF_API_VERSION = 'application/vnd.github.v3.diff';
+    private const BOT_ID = 41898282;
 
     public function __construct(
         private Client $client,
@@ -31,15 +32,13 @@ final readonly class GitHubClient
     /**
      * @throws GuzzleException
      */
-    public function getPendingReview(string $botUsername = 'github-actions'): ?array
+    public function getPendingReview(): ?array
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
         $reviews = json_decode($this->githubApiRequest($url), true);
-
+        echo 'fetching existing reviews...' . PHP_EOL;
         foreach ($reviews as $review) {
-            echo 'existing reviews are:';
-            print_r($review);
-            if ($review['state'] === 'PENDING' && $review['user']['login'] === $botUsername) {
+            if ($review['state'] === 'PENDING' && $review['user']['id'] === self::BOT_ID) {
                 return $review;  // Return the first pending review found for the bot user
             }
         }
@@ -101,6 +100,7 @@ final readonly class GitHubClient
 
     /**
      * @throws Exception
+     * @throws GuzzleException
      */
     public function getPullRequestCommitId(): string
     {
@@ -112,6 +112,7 @@ final readonly class GitHubClient
 
     /**
      * @throws Exception
+     * @throws GuzzleException
      */
     public function getPullRequestDiff(): string
     {
@@ -124,6 +125,7 @@ final readonly class GitHubClient
 
     /**
      * @throws Exception
+     * @throws GuzzleException
      */
     private function startReview(): int
     {
@@ -145,6 +147,7 @@ final readonly class GitHubClient
 
     /**
      * @throws Exception
+     * @throws GuzzleException
      */
     public function addReviewComment(
         string $commitId,
@@ -168,6 +171,7 @@ final readonly class GitHubClient
 
     /**
      * @throws Exception
+     * @throws GuzzleException
      */
     public function submitReview(
         int $reviewId,
