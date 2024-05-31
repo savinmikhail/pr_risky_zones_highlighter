@@ -22,7 +22,7 @@ final class GitHubClient
     private const DIFF_API_VERSION = 'application/vnd.github.v3.diff';
     private const BOT_ID = 41898282;
 
-    private string $state;
+    private string $state = 'PENDING';
 
     public function __construct(
         private readonly Client $client,
