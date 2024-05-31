@@ -27,6 +27,9 @@ final readonly class ChatGPTAnalyzer
     ) {
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function analyzeCodeWithChatGPT(
         array $files,
         int $maxComments
@@ -54,7 +57,7 @@ final readonly class ChatGPTAnalyzer
                 echo "Successfully got review from ChatGPT.\n";
             } catch (Exception $e) {
                 echo "Error: " . $e->getMessage() . PHP_EOL;
-                exit(1);
+                throw new Exception($e->getMessage());
             }
         }
         return $responses;

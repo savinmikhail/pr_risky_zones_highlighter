@@ -12,22 +12,22 @@ use const PHP_INT_MAX;
 
 final readonly class Highlighter
 {
-    public function __construct(private int $argc, private array $argv, private CLient $client)
-    {
+    public function __construct(
+        private int $argc,
+        private array $argv,
+        private CLient $client
+    ) {
     }
 
     private function validateInput(): void
     {
-        // Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
         if ($this->argc < 6) {
-            echo "Insufficient arguments provided.\n";
-            exit(1);
+            throw new \InvalidArgumentException("Insufficient arguments provided.");
         }
 
         foreach ($this->argv as $key => $arg) {
             if (empty($arg)) {
-                echo "Empty argument N" . ($key + 1) . " provided.\n";
-                exit(1);
+                throw new \InvalidArgumentException("Empty argument N" . ($key + 1) . " provided.");
             }
         }
     }

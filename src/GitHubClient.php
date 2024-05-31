@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SavinMikhail\PrRiskHighLighter;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
@@ -28,6 +29,9 @@ final readonly class GitHubClient
     ) {
     }
 
+    /**
+     * @throws Exception
+     */
     private function githubApiRequest(
         string $url,
         string $method = 'GET',
@@ -62,7 +66,7 @@ final readonly class GitHubClient
                 echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
             }
             if ($shouldFail) {
-                exit(1);
+                throw new Exception($e->getMessage());
             }
         }
     }
