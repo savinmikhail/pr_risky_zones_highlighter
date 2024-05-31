@@ -4,339 +4,84 @@ declare(strict_types=1);
 
 namespace SavinMikhail\PrRiskHighLighter;
 
-use Exception;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
-use RuntimeException;
-use SebastianBergmann\Diff\Chunk;
-use SebastianBergmann\Diff\Line;
-use SebastianBergmann\Diff\Parser;
 
-use function array_map;
-use function array_slice;
-use function explode;
-use function implode;
-use function json_decode;
-use function min;
 use function print_r;
-use function str_starts_with;
-use function substr;
 
-use const PHP_EOL;
+use const PHP_INT_MAX;
 
 final readonly class Highlighter
 {
-    private const BASE_URL = "https://api.github.com/repos/";
-    private const API_VERSION = "application/vnd.github.v3+json";
-    private const DIFF_API_VERSION = "application/vnd.github.v3.diff";
-
-    public function __construct(private Client $client, private string $githubToken)
+    public function __construct(private int $argc, private array $argv, private CLient $client)
     {
     }
 
-    private function githubApiRequest(
-        string $url,
-        string $method = 'GET',
-        array $data = [],
-        string $acceptHeader = self::API_VERSION,
-        bool $shouldFail = true
-    ): string {
-        $headers = [
-            'Authorization' => 'token ' . $this->githubToken,
-            'User-Agent' => 'PHP Script',
-            'Accept' => $acceptHeader,
-            'Content-Type' => 'application/json',
-            'X-GitHub-Api-Version' => '2022-11-28',
-        ];
-
-        $options = ['headers' => $headers];
-        if ($method !== 'GET') {
-            $options['json'] = $data;
+    private function validateInput(): void
+    {
+        // Expected arguments: GPT API key, GPT URL, GitHub Token, Repository Full Name, Pull Number
+        if ($this->argc < 6) {
+            echo "Insufficient arguments provided.\n";
+            exit(1);
         }
 
-        try {
-            $response = $this->client->request($method, $url, $options);
-
-            if ($response->getStatusCode() >= 400) {
-                throw new RuntimeException("HTTP error: " . $response->getStatusCode());
-            }
-
-            return $response->getBody()->getContents();
-        } catch (RequestException | GuzzleException $e) {
-            echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
-            }
-            if ($shouldFail) {
+        foreach ($this->argv as $key => $arg) {
+            if (empty($arg)) {
+                echo "Empty argument N" . ($key + 1) . " provided.\n";
                 exit(1);
             }
         }
     }
 
-    public function getPullRequestCommitId(string $repoFullName, string $pullNumber): string
+    public function review(): void
     {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
-        $response = $this->githubApiRequest($url);
-        $responseArray = json_decode($response, true);
-        return $responseArray['head']['sha']; // The latest commit SHA on the pull request
-    }
+        $this->validateInput();
+        $gptApiKey = $this->argv[1];
+        $gptUrl = $this->argv[2];
+        $githubToken = $this->argv[3];
+        $repoFullName = $this->argv[4];
+        $pullNumber = $this->argv[5];
+        $maxComments = $this->argv[6] ?? PHP_INT_MAX;
 
-    public function getPullRequestDiff(string $repoFullName, string $pullNumber): string
-    {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber";
-        return $this->githubApiRequest(
-            $url,
-            acceptHeader: self::DIFF_API_VERSION
-        );
-    }
+        $githubClient = new GitHubClient($this->client, $githubToken);
+        $diffs = $githubClient->getPullRequestDiff($repoFullName, $pullNumber);
+        echo "\nFetched diffs are:\n" . print_r($diffs, true);
 
-    public function analyzeCodeWithChatGPT(
-        array $files,
-        string $gptApiKey,
-        string $gptUrl,
-        int $maxComments
-    ): array {
-        $responses = [];
-        $remainingComments = $maxComments; // Initialize with the total allowed comments
+        $parser = new DiffParser();
+        $parsedDiffs = $parser->parseDiff($diffs);
+        echo "\n" . print_r($parsedDiffs, true);
 
-        foreach ($files as $file => $data) {
-            if ($remainingComments <= 0) {
-                break; // Stop processing if no more comments are allowed
-            }
+        $chatGPTAnalyzer = new ChatGPTAnalyzer($this->client);
+        $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $gptApiKey, $gptUrl, $maxComments);
+        echo "\nChatGPT analysis is:\n" . print_r($analysis, true);
 
-            $changesText = $this->formatChanges($data);
-            $systemPrompt = $this->createSystemPrompt($remainingComments);
+        $reviewId = $githubClient->startReview($repoFullName, $pullNumber);
 
-            $postData = $this->createPostData($systemPrompt, $file, $changesText);
+        $commitId = $githubClient->getPullRequestCommitId($repoFullName, $pullNumber);
+        echo "Commit ID: $commitId\n";
 
-            try {
-                $content = $this->getPostResponse($postData, $gptApiKey, $gptUrl);
-                $comments = $this->processComments($content, $remainingComments);
+        $parser = new CommentParser();
+        foreach ($analysis as $file => $comments) {
+            $parsedComments = $parser->parseComments($comments);
 
-                $responses[$file] = implode(PHP_EOL, $comments);
-                $remainingComments -= count($comments);
-
-                echo "Successfully got review from ChatGPT.\n";
-            } catch (Exception $e) {
-                echo "Error: " . $e->getMessage() . PHP_EOL;
-                exit(1);
-            }
-        }
-        return $responses;
-    }
-
-    private function formatChanges(array $data): string
-    {
-        return implode(PHP_EOL, array_map(static function (array $change): string {
-            return "[line {$change['line']}] {$change['text']}";
-        }, $data));
-    }
-
-    private function createSystemPrompt(int $remainingComments): string
-    {
-        return "You are a senior developer. Review the code differences from a pull request for potential 
-            vulnerabilities, bugs, or poor design. 
-            Do not mention what is good. 
-            Only risky parts must be commented. 
-            You MUST provide at most $remainingComments comments, so choose the most riskiest parts of the code. 
-            Use the format: '[line X] - Comment'. 
-            Each comment must start from a new line. 
-            You can use GitHub markdown syntax.";
-    }
-
-    private function createPostData(string $systemPrompt, string $file, string $changesText): array
-    {
-        return [
-            'model' => 'gpt-3.5-turbo',
-            'messages' => [
-                ["role" => "system", "content" => $systemPrompt],
-                ["role" => "user", "content" => "Analyze changes to $file:\n" . $changesText]
-            ],
-            'temperature' => 1.0,
-            'max_tokens' => 4000,
-            'frequency_penalty' => 0,
-            'presence_penalty' => 0,
-        ];
-    }
-
-    /**
-     * @throws GuzzleException
-     */
-    private function getPostResponse(array $postData, string $gptApiKey, string $gptUrl): string
-    {
-        $response = $this->client->post("$gptUrl/v1/chat/completions", [
-            'headers' => [
-                'Content-Type' => 'application/json',
-                'Authorization' => 'Bearer ' . $gptApiKey,
-            ],
-            'json' => $postData,
-        ]);
-
-        if ($response->getStatusCode() !== 200) {
-            throw new RuntimeException(
-                'Failed to get review from ChatGPT. Status code: ' . $response->getStatusCode()
-            );
-        }
-
-        $responseArray = json_decode((string) $response->getBody(), true);
-        return $responseArray['choices'][0]['message']['content'];
-    }
-
-    private function processComments(string $content, int $remainingComments): array
-    {
-        $comments = explode(PHP_EOL, $content);
-        return array_slice($comments, 0, min(count($comments), $remainingComments));
-    }
-
-    public function parseDiff(string $diff): array
-    {
-        $parser = new Parser();
-        $diffs = $parser->parse($diff);
-        $files = [];
-        foreach ($diffs as $diff) {
-            $currentFile = $this->normalizeFilePath($diff->to());
-            $files[$currentFile] = [];
-
-            foreach ($diff->chunks() as $chunk) {
-                $this->processChunk($chunk, $files, $currentFile);
+            foreach ($parsedComments as $line => $comment) {
+                foreach ($parsedDiffs[$file] as $diff) {
+                    if ($diff['line'] === $line) {
+                        $position = $diff['diffPosition'];
+                        $diffHunk = $diff['diffHunk'];
+                    }
+                }
+                $githubClient->addReviewComment(
+                    repoFullName: $repoFullName,
+                    pullNumber: $pullNumber,
+                    commitId: $commitId,
+                    body: $comment,
+                    path: $file,
+                    position: $position,
+                    diffHunk: $diffHunk
+                );
             }
         }
-        return $files;
-    }
 
-    /**
-     * @param Line $line
-     * @param int $currentPosition
-     * @param int $diffPosition
-     * @param string $diffHunk
-     * @param array $files
-     * @param string $currentFile
-     */
-    public function processLine(
-        Line $line,
-        int &$currentPosition,
-        int &$diffPosition,
-        string $diffHunk,
-        array &$files,
-        string $currentFile
-    ): void {
-        $type = $line->type();
-        $lineType = $type === Line::ADDED ? 'add' : ($type === Line::UNCHANGED ? 'context' : 'remove');
-
-        if ($type !== Line::REMOVED) {
-            $files[$currentFile][] = [
-                'line' => $currentPosition,
-                'text' => $line->content(),
-                'type' => $lineType,
-                'diffPosition' => $diffPosition,
-                'diffHunk' => $diffHunk
-            ];
-        }
-
-        if ($type === Line::UNCHANGED || $type === Line::ADDED) {
-            $currentPosition++;
-        }
-        $diffPosition++;
-    }
-
-    /**
-     * @param Chunk $chunk
-     * @param array $files
-     * @param string $currentFile
-     */
-    public function processChunk(Chunk $chunk, array &$files, string $currentFile): void
-    {
-        $currentPosition = $chunk->start();
-        $diffPosition = 1; // Start from 1
-
-        // Extract the hunk header for the diff
-        $diffHunk = $this->createDiffHunkHeader($chunk);
-        foreach ($chunk->lines() as $line) {
-            $diffHunk .= $line->content() . PHP_EOL;
-        }
-
-        foreach ($chunk->lines() as $line) {
-            $this->processLine(
-                $line,
-                $currentPosition,
-                $diffPosition,
-                $diffHunk,
-                $files,
-                $currentFile
-            );
-        }
-    }
-
-    private function normalizeFilePath(string $filePath): string
-    {
-        return str_starts_with($filePath, 'b/') ? substr($filePath, 2) : $filePath;
-    }
-
-    private function createDiffHunkHeader($chunk): string
-    {
-        return "@@ -"
-            . $chunk->start()
-            . ","
-            . $chunk->startRange()
-            . " +"
-            . $chunk->end()
-            . ","
-            . $chunk->endRange()
-            . " @@\n";
-    }
-
-    public function startReview(string $repoFullName, string $pullNumber): int
-    {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews";
-        $data = [
-            'body' => 'Starting review',
-        ];
-
-        $response = $this->githubApiRequest($url, 'POST', $data);
-
-        $responseArray = json_decode($response, true);
-        if (!isset($responseArray['id'])) {
-            throw new RuntimeException('Failed to retrieve review ID from response.');
-        }
-
-        echo 'Started review successfully.' . PHP_EOL;
-        return $responseArray['id'];  // Return the review ID to use for adding comments
-    }
-
-    public function addReviewComment(
-        string $repoFullName,
-        string $pullNumber,
-        string $commitId,
-        string $body,
-        string $path,
-        int $position,
-        string $diffHunk
-    ): void {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/comments";
-        $data = [
-            'body' => $body,
-            'commit_id' => $commitId,
-            'path' => $path,
-            'diff_hunk' => $diffHunk,
-            'position' => $position,
-        ];
-        echo 'send comment with data: ' . PHP_EOL;
-        print_r($data);
-        $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json', false);
-    }
-
-    public function submitReview(
-        string $repoFullName,
-        string $pullNumber,
-        int $reviewId,
-    ): void {
-        $url = self::BASE_URL . "$repoFullName/pulls/$pullNumber/reviews/$reviewId/events";
-        $data = [
-            'event' => 'COMMENT',
-            'body' => 'Please address the review comments.'
-        ];
-        $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json');
-        echo "Review submitted successfully.\n";
+        $githubClient->submitReview($repoFullName, $pullNumber, $reviewId);
     }
 }
