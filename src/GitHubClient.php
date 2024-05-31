@@ -32,27 +32,26 @@ final readonly class GitHubClient
     /**
      * @throws GuzzleException
      */
-    public function getPendingReview(): ?array
+    public function getPendingReview(): ?int
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
         $reviews = json_decode($this->githubApiRequest($url), true);
         echo 'fetching existing reviews...' . PHP_EOL;
         foreach ($reviews as $review) {
             if ($review['state'] === 'PENDING' && $review['user']['id'] === self::BOT_ID) {
-                return $review;  // Return the first pending review found for the bot user
+                return $review['id'];  // Return the first pending review found for the bot user
             }
         }
         return null;  // No pending reviews for the bot
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function getReviewId(): int
     {
-        $existingReview = $this->getPendingReview();
-        if ($existingReview) {
-            return $existingReview['id'];  // Use the existing review ID
-        } else {
-            return $this->startReview();  // Start a new review and return its ID
-        }
+        $existingReviewId = $this->getPendingReview();
+        return $existingReviewId !== null ? $existingReviewId : $this->startReview();
     }
     /**
      * @throws Exception|GuzzleException
@@ -62,7 +61,6 @@ final readonly class GitHubClient
         string $method = 'GET',
         array $data = [],
         string $acceptHeader = self::API_VERSION,
-        bool $shouldFail = true
     ): string {
         $headers = [
             'Authorization' => 'token ' . $this->githubToken,
@@ -92,9 +90,7 @@ final readonly class GitHubClient
                     echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
                 }
             }
-            if ($shouldFail) {
-                throw new Exception($e->getMessage());
-            }
+            throw $e;
         }
     }
 
@@ -166,7 +162,12 @@ final readonly class GitHubClient
         ];
         echo 'send comment with data: ' . PHP_EOL;
         print_r($data);
-        $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json', false);
+        try {
+            $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json');
+            //we want to catch exception here to try to submit other comments
+        } catch (Exception) {
+            //doing nothing here
+        }
     }
 
     /**
