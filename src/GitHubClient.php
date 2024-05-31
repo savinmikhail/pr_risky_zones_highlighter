@@ -41,7 +41,7 @@ final readonly class GitHubClient
         foreach ($reviews as $review) {
             echo 'existing review is: ' . print_r($review, true) . PHP_EOL;
             if (
-                (in_array($review['state'], ['PENDING', 'COMMENTED']))
+                (in_array($review['state'], ['PENDING', 'COMMENTED'], true))
                 && $review['user']['id'] === self::BOT_ID
             ) {
                 echo 'comments will be added to existing review ' . $review['id'] . PHP_EOL;
