@@ -11,5 +11,6 @@ $highlighter = new Highlighter($argc, $argv, new Client());
 try {
     $highlighter->review();
 } catch (Exception $e) {
+    echo $e->getMessage();
     exit(1);
 }
