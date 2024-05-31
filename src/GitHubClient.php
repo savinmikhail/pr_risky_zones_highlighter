@@ -7,7 +7,6 @@ namespace SavinMikhail\PrRiskHighLighter;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 use RuntimeException;
 
 use function json_decode;
@@ -30,7 +29,34 @@ final readonly class GitHubClient
     }
 
     /**
-     * @throws Exception
+     * @throws GuzzleException
+     */
+    public function getPendingReview(string $botUsername = 'github-actions'): ?array
+    {
+        $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
+        $reviews = json_decode($this->githubApiRequest($url), true);
+
+        foreach ($reviews as $review) {
+            echo 'existing reviews are:';
+            print_r($review);
+            if ($review['state'] === 'PENDING' && $review['user']['login'] === $botUsername) {
+                return $review;  // Return the first pending review found for the bot user
+            }
+        }
+        return null;  // No pending reviews for the bot
+    }
+
+    public function getReviewId(): int
+    {
+        $existingReview = $this->getPendingReview();
+        if ($existingReview) {
+            return $existingReview['id'];  // Use the existing review ID
+        } else {
+            return $this->startReview();  // Start a new review and return its ID
+        }
+    }
+    /**
+     * @throws Exception|GuzzleException
      */
     private function githubApiRequest(
         string $url,
@@ -99,7 +125,7 @@ final readonly class GitHubClient
     /**
      * @throws Exception
      */
-    public function startReview(): int
+    private function startReview(): int
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
         $data = [

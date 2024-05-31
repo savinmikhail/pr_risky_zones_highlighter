@@ -88,7 +88,7 @@ final readonly class Highlighter
         $analysis = $chatGPTAnalyzer->analyzeCodeWithChatGPT($parsedDiffs, $this->getMaxComments());
         echo "\nChatGPT analysis is:\n" . print_r($analysis, true);
 
-        $reviewId = $githubClient->startReview();
+        $reviewId = $githubClient->getReviewId();
 
         $commitId = $githubClient->getPullRequestCommitId();
         echo "Commit ID: $commitId\n";
