@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use RuntimeException;
 
+use function in_array;
 use function json_decode;
 use function print_r;
 
@@ -39,7 +40,10 @@ final readonly class GitHubClient
         echo 'fetching existing reviews...' . PHP_EOL;
         foreach ($reviews as $review) {
             echo 'existing review is: ' . print_r($review, true) . PHP_EOL;
-            if ($review['state'] === 'PENDING' && $review['user']['id'] === self::BOT_ID) {
+            if (
+                (in_array($review['state'], ['PENDING', 'COMMENTED']))
+                && $review['user']['id'] === self::BOT_ID
+            ) {
                 echo 'comments will be added to existing review ' . $review['id'] . PHP_EOL;
                 return $review['id'];  // Return the first pending review found for the bot user
             }
