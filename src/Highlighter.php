@@ -26,8 +26,12 @@ final readonly class Highlighter
         }
 
         foreach ($this->argv as $key => $arg) {
+            //the max comment arg is not required
+            if ($key === 6) {
+                continue;
+            }
             if (empty($arg)) {
-                throw new \InvalidArgumentException("Empty argument N" . ($key + 1) . " provided.");
+                throw new \InvalidArgumentException("Empty argument N" . ($key) . " provided.");
             }
         }
     }
