@@ -60,10 +60,12 @@ final readonly class GitHubClient
             }
 
             return $response->getBody()->getContents();
-        } catch (RequestException | GuzzleException $e) {
+        } catch (Exception $e) {
             echo "Request error: " . $e->getMessage() . PHP_EOL;
-            if ($e->hasResponse()) {
-                echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
+            if ($e instanceof GuzzleException) {
+                if ($e->hasResponse()) {
+                    echo "Response: " . $e->getResponse()->getBody() . PHP_EOL;
+                }
             }
             if ($shouldFail) {
                 throw new Exception($e->getMessage());
@@ -71,6 +73,9 @@ final readonly class GitHubClient
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public function getPullRequestCommitId(): string
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber";
@@ -79,6 +84,9 @@ final readonly class GitHubClient
         return $responseArray['head']['sha']; // The latest commit SHA on the pull request
     }
 
+    /**
+     * @throws Exception
+     */
     public function getPullRequestDiff(): string
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber";
@@ -87,6 +95,10 @@ final readonly class GitHubClient
             acceptHeader: self::DIFF_API_VERSION
         );
     }
+
+    /**
+     * @throws Exception
+     */
     public function startReview(): int
     {
         $url = self::BASE_URL . "$this->repoFullName/pulls/$this->pullNumber/reviews";
@@ -105,6 +117,9 @@ final readonly class GitHubClient
         return $responseArray['id'];  // Return the review ID to use for adding comments
     }
 
+    /**
+     * @throws Exception
+     */
     public function addReviewComment(
         string $commitId,
         string $body,
@@ -125,6 +140,9 @@ final readonly class GitHubClient
         $this->githubApiRequest($url, 'POST', $data, 'application/vnd.github+json', false);
     }
 
+    /**
+     * @throws Exception
+     */
     public function submitReview(
         int $reviewId,
     ): void {
