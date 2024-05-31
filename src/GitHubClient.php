@@ -38,7 +38,9 @@ final readonly class GitHubClient
         $reviews = json_decode($this->githubApiRequest($url), true);
         echo 'fetching existing reviews...' . PHP_EOL;
         foreach ($reviews as $review) {
+            echo 'existing review is: ' . print_r($review, true) . PHP_EOL;
             if ($review['state'] === 'PENDING' && $review['user']['id'] === self::BOT_ID) {
+                echo 'comments will be added to existing review ' . $review['id'] . PHP_EOL;
                 return $review['id'];  // Return the first pending review found for the bot user
             }
         }
@@ -53,6 +55,7 @@ final readonly class GitHubClient
         $existingReviewId = $this->getPendingReview();
         return $existingReviewId !== null ? $existingReviewId : $this->startReview();
     }
+
     /**
      * @throws Exception|GuzzleException
      */
